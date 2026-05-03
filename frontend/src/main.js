@@ -8,6 +8,8 @@ const state = {
     settings: { defaultDir: '', currency: 'USD', company: '' },
     galleryAbort: false,
     viewMode: 'grid',  // 'grid' or 'list'
+    searchQuery: '',
+    searchTimer: null,
 };
 
 // ── Init ──
@@ -17,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { setupSidebar(); } catch(e) { console.error('setupSidebar:', e); }
     try { setupModals(); } catch(e) { console.error('setupModals:', e); }
     try { setupGalleryEvents(); } catch(e) { console.error('setupGalleryEvents:', e); }
+    try { setupSearch(); } catch(e) { console.error('setupSearch:', e); }
     initSettings().then(() => {
         if (state.settings.defaultDir) {
             loadDirectory(state.settings.defaultDir);
@@ -73,10 +76,18 @@ async function initSettings() {
 
 // ── Directory Loading ──
 async function loadDirectory(dir) {
+    // Clear search when navigating
+    state.searchQuery = '';
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) { searchInput.value = ''; }
+    const searchClear = document.getElementById('search-clear');
+    if (searchClear) { searchClear.style.display = 'none'; }
+
     state.galleryAbort = true;
     state.currentDir = dir;
     try {
         const items = await api.listItems(dir);
+        state._allItems = items;
         state.items = items;
         updateSidebarHeader(dir);
         renderSidebar(dir, items);
@@ -149,6 +160,70 @@ function renderSidebar(dir, items) {
             showFileContextMenu(e, el.dataset.path, el.dataset.subtype);
         });
     });
+}
+
+// ── Search ──
+function setupSearch() {
+    const input = document.getElementById('search-input');
+    const clear = document.getElementById('search-clear');
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+        const val = input.value.trim();
+        clear.style.display = val ? 'inline-block' : 'none';
+        if (state.searchTimer) clearTimeout(state.searchTimer);
+        state.searchTimer = setTimeout(() => {
+            state.searchQuery = val;
+            applySearchFilter();
+        }, 300);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            input.value = '';
+            clear.style.display = 'none';
+            state.searchQuery = '';
+            if (state.searchTimer) clearTimeout(state.searchTimer);
+            applySearchFilter();
+            input.blur();
+        }
+    });
+
+    if (clear) {
+        clear.addEventListener('click', () => {
+            input.value = '';
+            clear.style.display = 'none';
+            state.searchQuery = '';
+            if (state.searchTimer) clearTimeout(state.searchTimer);
+            applySearchFilter();
+            input.focus();
+        });
+    }
+}
+
+async function applySearchFilter() {
+    if (!state.currentDir) return;
+    if (!state.searchQuery) {
+        // Restore all items
+        state.items = state._allItems || state.items;
+        if (state.viewMode === 'grid') {
+            renderGallery(state.currentDir, state.items);
+        } else {
+            renderListView(state.currentDir, state.items);
+        }
+        return;
+    }
+    try {
+        const items = await api.searchItems(state.currentDir, state.searchQuery);
+        state.items = items;
+        if (state.viewMode === 'grid') {
+            renderGallery(state.currentDir, items);
+        } else {
+            renderListView(state.currentDir, items);
+        }
+    } catch (e) {
+        showError(e);
+    }
 }
 
 // ── Gallery (Card Grid) ──

@@ -41,6 +41,9 @@ const api = {
     getDeal:        (d) => apiCall('POST', '/api/deal', { path: d }),
     saveDeal:       (d, deal) => apiCall('POST', '/api/deal/save', { path: d, deal }),
 
+    // Search
+    searchItems:    (dir, query) => apiCall('POST', '/api/search', { dir, query }),
+
     // Settings
     getSettings:    () => apiCall('GET', '/api/settings'),
     saveSettings:   (s) => apiCall('POST', '/api/settings', s),

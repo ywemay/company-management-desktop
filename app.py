@@ -173,6 +173,41 @@ def api_list_items():
     return json_ok(store.list_items(body.get("dir", "")))
 
 
+@bottle_app.post("/api/search")
+def api_search():
+    body = request.json or {}
+    dir_path = body.get("dir", "")
+    query = body.get("query", "").strip()
+    if not query:
+        return json_ok(store.list_items(dir_path))
+    if not dir_path:
+        return json_err("dir is required")
+    items = store.list_items(dir_path)
+    q = query.lower()
+    results = []
+    for item in items:
+        name_match = q in item.get("name", "").lower()
+        # For folders, include if name matches
+        if item["type"] == "folder":
+            if name_match:
+                results.append(item)
+            continue
+        # For files, try name match
+        if name_match:
+            results.append(item)
+            continue
+        # For .prod files, try loading product data to search code/title
+        if item.get("subtype") == "prod":
+            try:
+                prod = store.open_product(item["path"])
+                if q in prod.get("code", "").lower() or q in prod.get("title", "").lower():
+                    item["_product"] = prod
+                    results.append(item)
+            except Exception:
+                pass
+    return json_ok(results)
+
+
 @bottle_app.post("/api/create-subdir")
 def api_create_subdir():
     body = request.json or {}
