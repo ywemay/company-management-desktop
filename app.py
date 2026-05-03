@@ -137,7 +137,12 @@ def serve_index():
 
 @bottle_app.route("/src/<filename:path>")
 def serve_static(filename):
-    return static_file(filename, root=os.path.join(FRONTEND_DIR, "src"))
+    resp = static_file(filename, root=os.path.join(FRONTEND_DIR, "src"))
+    if hasattr(resp, 'set_header'):
+        resp.set_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        resp.set_header("Pragma", "no-cache")
+        resp.set_header("Expires", "0")
+    return resp
 
 
 # ---------------------------------------------------------------------------

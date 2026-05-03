@@ -17,9 +17,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupModals();
     setupGalleryEvents();
     loadSettings().then(() => {
+        console.log('[main] Settings loaded:', JSON.stringify(state.settings));
         if (state.settings.defaultDir) {
+            console.log('[main] Auto-loading dir:', state.settings.defaultDir);
             loadDirectory(state.settings.defaultDir);
         } else {
+            console.log('[main] No default dir, showing startup dialog');
             checkStartupDialog();
         }
     });
@@ -397,7 +400,12 @@ async function handleMenuAction(action) {
             const d = document.getElementById('startup-dir-input').value.trim();
             if (d) {
                 state.settings.defaultDir = d;
-                await api.saveSettings(state.settings);
+                try {
+                    await api.saveSettings(state.settings);
+                    showMsg('Default directory saved', 'success');
+                } catch (e) {
+                    showError(e);
+                }
                 document.getElementById('startup-overlay').classList.remove('show');
                 document.getElementById('startup-overlay').style.display = 'none';
                 loadDirectory(d);
