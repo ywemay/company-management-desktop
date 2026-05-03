@@ -401,6 +401,103 @@ def api_delete_products():
     return json_ok({"deleted": deleted, "errors": errors})
 
 
+# ---------------------------------------------------------------------------
+# Copy / Move / Paste
+# ---------------------------------------------------------------------------
+def _handle_collision(dest_path):
+    """If dest_path exists, return a non-conflicting path by appending '(copy)'."""
+    if not os.path.exists(dest_path):
+        return dest_path
+    base, ext = os.path.splitext(dest_path)
+    counter = 1
+    while True:
+        candidate = f"{base} (copy){ext}"
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+        base = f"{base} (copy)"
+        ext = ""
+
+
+def _copy_item(src, dest_dir):
+    """Copy a single file or directory to dest_dir. Returns (dest_path, error_msg)."""
+    name = os.path.basename(src)
+    dest = os.path.join(dest_dir, name)
+    dest = _handle_collision(dest)
+    try:
+        if os.path.isdir(src):
+            import shutil
+            shutil.copytree(src, dest)
+        else:
+            import shutil
+            shutil.copy2(src, dest)
+        return dest, None
+    except Exception as e:
+        return None, str(e)
+
+
+def _move_item(src, dest_dir):
+    """Move a single file or directory to dest_dir. Returns (dest_path, error_msg)."""
+    name = os.path.basename(src)
+    dest = os.path.join(dest_dir, name)
+    # If source and dest are the same, just return
+    if os.path.normpath(src) == os.path.normpath(dest):
+        return dest, None
+    dest = _handle_collision(dest)
+    try:
+        import shutil
+        shutil.move(src, dest)
+        return dest, None
+    except Exception as e:
+        return None, str(e)
+
+
+@bottle_app.post("/api/copy-items")
+def api_copy_items():
+    body = request.json or {}
+    source_paths = body.get("sourcePaths", [])
+    dest_dir = body.get("destDir", "")
+    if not source_paths or not dest_dir:
+        return json_err("sourcePaths and destDir are required")
+    if not os.path.isdir(dest_dir):
+        return json_err(f"destination directory not found: {dest_dir}")
+    copied = []
+    errors = []
+    for src in source_paths:
+        if not os.path.exists(src):
+            errors.append({"path": src, "error": "not found"})
+            continue
+        dest, err = _copy_item(src, dest_dir)
+        if err:
+            errors.append({"path": src, "error": err})
+        else:
+            copied.append({"source": src, "dest": dest})
+    return json_ok({"copied": copied, "errors": errors})
+
+
+@bottle_app.post("/api/move-items")
+def api_move_items():
+    body = request.json or {}
+    source_paths = body.get("sourcePaths", [])
+    dest_dir = body.get("destDir", "")
+    if not source_paths or not dest_dir:
+        return json_err("sourcePaths and destDir are required")
+    if not os.path.isdir(dest_dir):
+        return json_err(f"destination directory not found: {dest_dir}")
+    moved = []
+    errors = []
+    for src in source_paths:
+        if not os.path.exists(src):
+            errors.append({"path": src, "error": "not found"})
+            continue
+        dest, err = _move_item(src, dest_dir)
+        if err:
+            errors.append({"path": src, "error": err})
+        else:
+            moved.append({"source": src, "dest": dest})
+    return json_ok({"moved": moved, "errors": errors})
+
+
 @bottle_app.post("/api/open-system")
 def api_open_system():
     body = request.json or {}

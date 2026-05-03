@@ -44,6 +44,10 @@ const api = {
     // Search
     searchItems:    (dir, query) => apiCall('POST', '/api/search', { dir, query }),
 
+    // Copy / Move
+    copyItems:      (sourcePaths, destDir) => apiCall('POST', '/api/copy-items', { sourcePaths, destDir }),
+    moveItems:      (sourcePaths, destDir) => apiCall('POST', '/api/move-items', { sourcePaths, destDir }),
+
     // Settings
     getSettings:    () => apiCall('GET', '/api/settings'),
     saveSettings:   (s) => apiCall('POST', '/api/settings', s),
