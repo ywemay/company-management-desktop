@@ -11,11 +11,11 @@ const state = {
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
-    setupMenuBar();
-    setupContextMenu();
-    setupSidebar();
-    setupModals();
-    setupGalleryEvents();
+    try { setupMenuBar(); } catch(e) { console.error('setupMenuBar:', e); }
+    try { setupContextMenu(); } catch(e) { console.error('setupContextMenu:', e); }
+    try { setupSidebar(); } catch(e) { console.error('setupSidebar:', e); }
+    try { setupModals(); } catch(e) { console.error('setupModals:', e); }
+    try { setupGalleryEvents(); } catch(e) { console.error('setupGalleryEvents:', e); }
     initSettings().then(() => {
         if (state.settings.defaultDir) {
             loadDirectory(state.settings.defaultDir);
@@ -350,6 +350,7 @@ function openFileInEditor(path, subtype) {
 
 // ── Menu Bar ──
 function setupMenuBar() {
+    // Toggle menus on click
     document.querySelectorAll('.menu-item').forEach(el => {
         el.addEventListener('click', (e) => {
             document.querySelectorAll('.menu-item.active').forEach(m => { if (m !== el) m.classList.remove('active'); });
@@ -357,18 +358,26 @@ function setupMenuBar() {
             e.stopPropagation();
         });
     });
+    // Close menus when clicking outside
     document.addEventListener('click', () => {
         document.querySelectorAll('.menu-item.active').forEach(m => m.classList.remove('active'));
     });
+    // Dropdown items: handle action + close parent menu
     document.querySelectorAll('.menu-dropdown-item').forEach(el => {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
+            // Close the parent menu
+            const menuItem = el.closest('.menu-item');
+            if (menuItem) menuItem.classList.remove('active');
             handleMenuAction(el.dataset.action);
         });
     });
+    // Delegated toolbar/modal button clicks
     document.getElementById('app').addEventListener('click', (e) => {
         const el = e.target.closest('[data-action]');
         if (!el) return;
+        // Skip dropdown items (they're handled above)
+        if (el.closest('.menu-dropdown')) return;
         const a = el.dataset.action;
         if (['go-up','refresh','new-folder','change-dir','browse-startup-dir','browse-settings-dir',
              'set-startup-dir','skip-startup','cancel-createdir','do-create-dir',
