@@ -335,51 +335,52 @@ function renderListView(dir, items) {
         '<th class="col-currency">Currency</th>' +
         '</tr></thead><tbody>';
 
-    const allItems = [];
-    if (dir !== '/') allItems.push({ kind: 'up', name: '..', dir: dirname(dir) });
-    folders.forEach(f => allItems.push({ kind: 'folder', data: f }));
-    compItems.forEach(f => allItems.push({ kind: 'comp', data: f }));
-    dealItems.forEach(f => allItems.push({ kind: 'deal', data: f }));
-    prodItems.forEach(f => allItems.push({ kind: 'prod', data: f }));
+    // Build flat list: up-folder → folders → comps → deals → prods
+    let rows = [];
+    if (dir !== '/') rows.push({ kind: 'up', dir: dirname(dir) });
+    folders.forEach(f => rows.push({ kind: 'folder', data: f }));
+    compItems.forEach(f => rows.push({ kind: 'comp', data: f }));
+    dealItems.forEach(f => rows.push({ kind: 'deal', data: f }));
+    prodItems.forEach(f => rows.push({ kind: 'prod', data: f }));
 
-    allItems.forEach(entry => {
+    rows.forEach(entry => {
         if (entry.kind === 'up') {
-            html += '<tr class="list-row list-folder" onclick="loadDirectory(\'' + escapeHtml(entry.dir) + '\')">' +
+            html += '<tr class="list-row list-folder" data-action="open" data-path="' + escapeHtml(entry.dir) + '">' +
                 '<td class="col-icon">📁</td><td class="col-name">..</td><td></td><td></td><td></td><td></td></tr>';
-            return;
-        }
-        const d = entry.data;
-        if (entry.kind === 'folder') {
+        } else if (entry.kind === 'folder') {
+            const d = entry.data;
             const ci = d.company || {};
-            const onclick = 'loadDirectory(\'' + escapeHtml(state.currentDir + '/' + d.name) + '\')';
-            html += '<tr class="list-row list-folder" onclick="' + onclick + '">' +
+            const dirPath = state.currentDir + '/' + d.name;
+            html += '<tr class="list-row list-folder" data-action="open" data-path="' + escapeHtml(dirPath) + '">' +
                 '<td class="col-icon">📁</td>' +
                 '<td class="col-name">' + escapeHtml(d.name) + '</td>' +
                 '<td class="col-code"></td>' +
                 '<td class="col-type">' + (ci.name ? escapeHtml(ci.name) : 'Folder') + '</td>' +
                 '<td class="col-price"></td><td class="col-currency"></td></tr>';
         } else if (entry.kind === 'comp') {
+            const d = entry.data;
             const ci = d.company || {};
             const label = ci.company_type ? ci.company_type.replace(/_/g, ' ').replace(/\b\w/g, s => s.toUpperCase()) : 'Company';
-            html += '<tr class="list-row list-comp" onclick="openFileInEditor(\'' + escapeHtml(d.path) + '\',\'comp\')">' +
+            html += '<tr class="list-row list-comp" data-action="edit" data-path="' + escapeHtml(d.path) + '" data-subtype="comp">' +
                 '<td class="col-icon">🏢</td>' +
                 '<td class="col-name">' + escapeHtml(ci.name || d.name) + '</td>' +
                 '<td class="col-code"></td>' +
                 '<td class="col-type">' + escapeHtml(label) + '</td>' +
                 '<td class="col-price"></td><td class="col-currency"></td></tr>';
         } else if (entry.kind === 'deal') {
+            const d = entry.data;
             const meta = d.deal_info || {};
             const statusEmoji = { pending: '⏳', confirmed: '✅', shipped: '🚚', completed: '🎉', cancelled: '🚫' }[meta.status] || '⏳';
-            html += '<tr class="list-row list-deal" onclick="openFileInEditor(\'' + escapeHtml(d.path) + '\',\'deal\')">' +
+            html += '<tr class="list-row list-deal" data-action="edit" data-path="' + escapeHtml(d.path) + '" data-subtype="deal">' +
                 '<td class="col-icon">📋</td>' +
                 '<td class="col-name">' + escapeHtml(meta.title || d.name.replace(/\.deal$/, '')) + '</td>' +
                 '<td class="col-code"></td>' +
                 '<td class="col-type">' + statusEmoji + ' ' + (meta.status || 'deal') + '</td>' +
                 '<td class="col-price"></td><td class="col-currency"></td></tr>';
         } else if (entry.kind === 'prod') {
-            // Render immediately, will be updated when product data loads
+            const d = entry.data;
             const name = d.name.replace(/\.prod$/, '');
-            html += '<tr class="list-row list-prod" data-file="' + escapeHtml(d.path) + '">' +
+            html += '<tr class="list-row list-prod" data-action="edit" data-path="' + escapeHtml(d.path) + '" data-subtype="prod">' +
                 '<td class="col-icon">📄</td>' +
                 '<td class="col-name">' + escapeHtml(name) + '</td>' +
                 '<td class="col-code">loading...</td>' +
@@ -391,14 +392,26 @@ function renderListView(dir, items) {
     html += '</tbody></table>';
     container.innerHTML = html;
 
-    // Click handler on table rows
-    container.querySelectorAll('.list-row').forEach(el => {
-        el.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const file = el.dataset.file;
-            if (file) showFileContextMenu(e, file, 'prod');
-            else showNewItemContextMenu(e);
-        });
+    // Event delegation: handle clicks on list-view rows
+    container.addEventListener('click', function(e) {
+        const row = e.target.closest('.list-row');
+        if (!row) return;
+        const action = row.dataset.action;
+        const path = row.dataset.path;
+        if (action === 'open') {
+            loadDirectory(path);
+        } else if (action === 'edit') {
+            openFileInEditor(path, row.dataset.subtype);
+        }
+    });
+    container.addEventListener('contextmenu', function(e) {
+        const row = e.target.closest('.list-row');
+        if (!row) return;
+        e.preventDefault();
+        const file = row.dataset.path;
+        const subtype = row.dataset.subtype;
+        if (file && subtype) showFileContextMenu(e, file, subtype);
+        else showNewItemContextMenu(e);
     });
 
     // Load product details progressively
@@ -421,8 +434,8 @@ function renderListView(dir, items) {
 }
 
 function updateListRow(path, product) {
-    const escapedFile = CSS.escape(path);
-    const row = document.querySelector('.list-row[data-file="' + escapedFile + '"]');
+    const escaped = CSS.escape(path);
+    const row = document.querySelector('.list-row[data-path="' + escaped + '"]');
     if (!row) return;
     row.querySelector('.col-name').textContent = product.title || path.split('/').pop().replace(/\.prod$/, '');
     row.querySelector('.col-code').textContent = product.code || '—';
@@ -435,9 +448,6 @@ function updateListRow(path, product) {
         priceCell.textContent = '—';
         currencyCell.textContent = '';
     }
-    // Click handler that wasn't set during initial render
-    row.style.cursor = 'pointer';
-    row.addEventListener('click', () => openFileInEditor(path, 'prod'));
 }
 
 // ── Breadcrumb ──
