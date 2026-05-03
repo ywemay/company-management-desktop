@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (sc) sc.value = state.settings.company || '';
         if (state.settings.defaultDir) {
             console.log('[main] Auto-loading dir:', state.settings.defaultDir);
+            showMsg('Loading ' + state.settings.defaultDir, 'info');
             loadDirectory(state.settings.defaultDir);
         } else {
             console.log('[main] No default dir, showing startup dialog');
