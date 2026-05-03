@@ -104,7 +104,15 @@
                         <button class="btn btn-xs" data-action="refresh">🔄 Refresh</button>
                         <button class="btn btn-xs" data-action="new-folder">📁 New Folder</button>
                     </div>
-                    <div id="browser-grid"></div>
+                    <div id="gallery-header">
+                        <span id="gallery-count"></span>
+                        <span class="gallery-notice">Click a card to open the editor</span>
+                    </div>
+                    <div id="gallery-grid"></div>
+                    <div id="gallery-progress" style="display:none">
+                        <div class="spinner"></div>
+                        <span id="gallery-progress-text">Loading products...</span>
+                    </div>
                 </div>
 
 

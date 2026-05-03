@@ -131,7 +131,7 @@ def _groups_to_dicts(groups):
 def open_product(path: str) -> dict:
     """Open a .prod file and return a JSON-serialisable info dict."""
     p = Product.open(path)
-    return {
+    result = {
         "title": p.header.title,
         "uuid": p.header.uuid,
         "code": p.header.code,
@@ -142,6 +142,12 @@ def open_product(path: str) -> dict:
         "priceCount": len(p.price_history),
         "photos": [_make_thumbnail(d) for d in p.photos],
     }
+    # Include last price for gallery card display
+    if p.price_history:
+        last = p.price_history[-1]
+        result["lastPrice"] = last.price_hundredths / 100.0
+        result["lastCurrency"] = last.currency
+    return result
 
 
 def create_product(path: str, title: str, code: str,
