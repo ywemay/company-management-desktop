@@ -54,12 +54,13 @@ const api = {
 };
 
 // PyWebView bridge — call native API from JS
-const pywebviewApi = window.pywebview ? window.pywebview.api : null;
-
+// DO NOT cache window.pywebview at load time; pywebview may populate it after page load.
 function callNative(method, ...args) {
-    if (!pywebviewApi || !pywebviewApi[method]) {
-        console.warn('pywebview not available for', method);
-        return Promise.resolve(null);
+    const api = window.pywebview && window.pywebview.api;
+    if (api && typeof api[method] === 'function') {
+        console.log('[app] Calling pywebview.api.' + method + '()');
+        return api[method](...args);
     }
-    return pywebviewApi[method](...args);
+    console.warn('[app] pywebview.api.' + method + ' not available');
+    return Promise.resolve(null);
 }
