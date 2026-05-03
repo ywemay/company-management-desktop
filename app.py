@@ -596,37 +596,24 @@ class Api:
 
     # ── Editor Window Launchers ──
     def openProductEditor(self, path):
-        """Open a product editor in a new PyWebView window."""
+        """Open a product editor in the system browser."""
         log(f"openProductEditor: {path}")
-        webview.create_window(
-            f"Product - {os.path.basename(path)}",
-            url=f"http://127.0.0.1:{_api_port}/editor/product?path={path}",
-            width=800, height=700, resizable=True,
-        )
+        import webbrowser
+        webbrowser.open(f"http://127.0.0.1:{_api_port}/editor/product?path={path}")
         return True
 
     def openCompanyEditor(self, path):
-        """Open a company editor in a new PyWebView window."""
+        """Open a company editor in the system browser."""
         log(f"openCompanyEditor: {path}")
-        # If path points to a .comp file, derive the directory
-        dir_path = path
-        if path.endswith('.comp'):
-            dir_path = os.path.dirname(path)
-        webview.create_window(
-            f"Company - {os.path.basename(dir_path)}",
-            url=f"http://127.0.0.1:{_api_port}/editor/company?path={path}",
-            width=800, height=700, resizable=True,
-        )
+        import webbrowser
+        webbrowser.open(f"http://127.0.0.1:{_api_port}/editor/company?path={path}")
         return True
 
     def openDealEditor(self, path):
-        """Open a deal editor in a new PyWebView window."""
+        """Open a deal editor in the system browser."""
         log(f"openDealEditor: {path}")
-        webview.create_window(
-            f"Deal - {os.path.basename(path)}",
-            url=f"http://127.0.0.1:{_api_port}/editor/deal?path={path}",
-            width=800, height=700, resizable=True,
-        )
+        import webbrowser
+        webbrowser.open(f"http://127.0.0.1:{_api_port}/editor/deal?path={path}")
         return True
 
     def openNewProductEditor(self, dir_path):
@@ -647,10 +634,10 @@ class Api:
         """Create a new company directory and open its editor in a new window."""
         log(f"openNewCompanyEditor: {dir_path}")
         from prodlib.company import Company
-        comp_path = os.path.join(dir_path, "company.comp")
         c = Company(dir_path)
         c.name = os.path.basename(dir_path)
         c.save()
+        comp_path = os.path.join(dir_path, c.filename)
         return self.openCompanyEditor(comp_path)
 
     def openNewDealEditor(self, dir_path):
