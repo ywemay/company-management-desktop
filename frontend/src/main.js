@@ -18,6 +18,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupGalleryEvents();
     loadSettings().then(() => {
         console.log('[main] Settings loaded:', JSON.stringify(state.settings));
+        console.log('[main] defaultDir:', state.settings.defaultDir);
+        console.log('[main] !defaultDir:', !state.settings.defaultDir);
+        // Also update the Settings dialog fields
+        const sd = document.getElementById('settings-dir');
+        if (sd) sd.value = state.settings.defaultDir || '';
+        const sc = document.getElementById('settings-company');
+        if (sc) sc.value = state.settings.company || '';
         if (state.settings.defaultDir) {
             console.log('[main] Auto-loading dir:', state.settings.defaultDir);
             loadDirectory(state.settings.defaultDir);
