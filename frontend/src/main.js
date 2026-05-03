@@ -11,6 +11,7 @@ const state = {
     searchQuery: '',
     searchTimer: null,
     recursiveMode: false,
+    theme: 'light', // 'light' or 'dark'
     selectedItems: [],  // paths of selected items
     lastClickedPath: null,
     clipboard: { items: [], operation: null },  // 'copy' or 'cut'
@@ -40,6 +41,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
+// ── Theme ──
+function applyTheme(theme) {
+    state.theme = theme || 'light';
+    document.documentElement.setAttribute('data-theme', state.theme);
+    const btn = document.getElementById('theme-toggle');
+    if (btn) {
+        btn.textContent = state.theme === 'dark' ? '☀️' : '🌙';
+        btn.title = state.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+    }
+}
+
+function toggleTheme() {
+    const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+    applyTheme(newTheme);
+    state.settings.theme = newTheme;
+    // Persist
+    api.saveSettings(state.settings).catch(e => console.error('Failed to save theme:', e));
+    showMsg('Switched to ' + newTheme + ' theme', 'info');
+}
 
 // ── Helpers ──
 function escapeHtml(s) {
@@ -84,6 +105,8 @@ async function initSettings() {
     if (sc) sc.value = state.settings.company || '';
     const scur = document.getElementById('settings-currency');
     if (scur) scur.value = state.settings.currency || 'USD';
+    // Apply theme
+    applyTheme(state.settings.theme || 'light');
 }
 
 // ── Directory Loading ──
@@ -764,7 +787,7 @@ function setupMenuBar() {
         const a = el.dataset.action;
         if (['go-up','refresh','new-folder','change-dir','browse-startup-dir','browse-settings-dir',
              'set-startup-dir','skip-startup','cancel-createdir','do-create-dir',
-             'cancel-settings','save-settings','close-about','toggle-view','toggle-recursive'].includes(a)) {
+             'cancel-settings','save-settings','close-about','toggle-view','toggle-recursive','toggle-theme'].includes(a)) {
             e.stopPropagation();
             handleMenuAction(a);
         }
@@ -847,6 +870,10 @@ async function handleMenuAction(action) {
             document.getElementById('about-overlay').classList.remove('show');
             document.getElementById('about-overlay').style.display = 'none';
             break;
+        case 'toggle-theme': {
+            toggleTheme();
+            break;
+        }
         case 'toggle-recursive': {
             const cb = document.getElementById('recursive-check');
             state.recursiveMode = cb.checked;

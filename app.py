@@ -100,6 +100,7 @@ def api_get_settings():
         "defaultDir": s.get("defaultDir", ""),
         "currency": s.get("currency", "USD"),
         "company": s.get("company", ""),
+        "theme": s.get("theme", "light"),
     })
 
 
@@ -162,7 +163,7 @@ def api_save_settings():
     if not data:
         return json_err("no data")
     existing = _load_settings_file()
-    for k in ("defaultDir", "currency", "company"):
+    for k in ("defaultDir", "currency", "company", "theme"):
         if k in data:
             existing[k] = data[k]
     _save_settings_file(existing)
@@ -181,6 +182,7 @@ def serve_index():
         "defaultDir": settings.get("defaultDir", ""),
         "currency": settings.get("currency", "USD"),
         "company": settings.get("company", ""),
+        "theme": settings.get("theme", "light"),
     })
     inject = (
         f'<script>window.API_PORT = {_api_port};</script>\n'

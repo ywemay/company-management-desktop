@@ -1,6 +1,7 @@
 /* Company Management Desktop — Styles */
-/* Light theme (default) */
-:root {
+/* Light theme (default) — applied via data-theme="light" or no attribute */
+:root,
+html[data-theme="light"] {
     --bg-primary: #ffffff;
     --bg-secondary: #f5f6f8;
     --bg-tertiary: #ecedef;
@@ -25,32 +26,30 @@
     --bg-card-thumb: var(--bg-secondary);
 }
 
-/* Dark theme (follows system preference) */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-primary: #1a1b26;
-        --bg-secondary: #24253a;
-        --bg-tertiary: #2d2e42;
-        --bg-hover: #363854;
-        --bg-active: #3d3f5c;
-        --bg-surface: #1e1f32;
-        --bg-surface2: #282a40;
-        --text-primary: #c0caf5;
-        --text-secondary: #a9b1d6;
-        --text-muted: #565f89;
-        --border: #3b3d5c;
-        --border-light: #2d2f48;
-        --accent: #7aa2f7;
-        --accent-hover: #89b4fa;
-        --accent-green: #9ece6a;
-        --accent-red: #f7768e;
-        --accent-yellow: #e0af68;
-        --accent-blue: #7dcfff;
-        --overlay: rgba(0,0,0,0.6);
-        --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4);
-        --shadow-lg: 0 6px 24px rgba(0,0,0,0.5);
-        --bg-card-thumb: var(--bg-tertiary);
-    }
+/* Dark theme */
+html[data-theme="dark"] {
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-tertiary: #1e2a4a;
+    --bg-hover: #233554;
+    --bg-active: #2d4a6e;
+    --bg-surface: #1a1a2e;
+    --bg-surface2: #16213e;
+    --text-primary: #e0e6f0;
+    --text-secondary: #b0bcd6;
+    --text-muted: #6b7fa8;
+    --border: #2d4a6e;
+    --border-light: #233554;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-green: #22c55e;
+    --accent-red: #ef4444;
+    --accent-yellow: #eab308;
+    --accent-blue: #38bdf8;
+    --overlay: rgba(0,0,0,0.6);
+    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-lg: 0 6px 24px rgba(0,0,0,0.5);
+    --bg-card-thumb: var(--bg-tertiary);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -90,6 +89,21 @@ body { display: flex; flex-direction: column; }
 .menubar-title {
     margin-left: auto; font-size: 12px; color: var(--text-muted); padding-right: 8px;
     -webkit-app-region: drag;
+}
+.theme-toggle {
+    margin-left: 8px;
+    font-size: 14px;
+    padding: 2px 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+    -webkit-app-region: no-drag;
+}
+.theme-toggle:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
 }
 
 /* ── Messages ── */
