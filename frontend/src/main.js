@@ -265,14 +265,20 @@ function setupMenuBar() {
         });
     });
 
-    // Toolbar buttons
-    document.querySelectorAll('[data-action]').forEach(el => {
+    // Delegate all [data-action] clicks on the whole app container
+    document.getElementById('app').addEventListener('click', (e) => {
+        const el = e.target.closest('[data-action]');
+        if (!el) return;
         const action = el.dataset.action;
-        if (['go-up', 'refresh', 'new-folder', 'change-dir', 'browse-startup-dir',
-             'set-startup-dir', 'skip-startup', 'cancel-createdir', 'do-create-dir',
-             'cancel-settings', 'save-settings', 'browse-settings-dir',
-             'close-about'].includes(action)) {
-            el.addEventListener('click', () => handleMenuAction(action));
+        const allowed = ['go-up', 'refresh', 'new-folder', 'change-dir',
+                         'browse-startup-dir', 'browse-settings-dir',
+                         'set-startup-dir', 'skip-startup',
+                         'cancel-createdir', 'do-create-dir',
+                         'cancel-settings', 'save-settings',
+                         'close-about'];
+        if (allowed.includes(action)) {
+            e.stopPropagation();
+            handleMenuAction(action);
         }
     });
 }
