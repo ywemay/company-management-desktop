@@ -119,12 +119,22 @@ function renderSidebar(dir, items) {
         html += '<div class="file-item folder-item" data-path="' + escapeHtml(item.path) + '" data-type="folder">';
         html += '<span class="icon">📁</span><span class="name">' + escapeHtml(item.name) + '</span></div>';
     });
-    files.forEach(item => {
-        const icon = item.subtype === 'deal' ? '🤝' : item.subtype === 'comp' ? '🏢' : '📄';
-        const cls = item.subtype === 'deal' ? 'deal-item' : item.subtype === 'comp' ? 'comp-item' : 'prod-item';
-        html += '<div class="file-item ' + cls + '" data-path="' + escapeHtml(item.path) + '" data-type="file" data-subtype="' + (item.subtype || '') + '">';
-        html += '<span class="icon">' + icon + '</span><span class="name">' + escapeHtml(item.name) + '</span></div>';
-    });
+    if (folders.length > 0 && files.length > 0) {
+        html += '<div class="sidebar-separator"></div>';
+    }
+    // File-type counts only, no individual file rows
+    const compFiles = files.filter(f => f.subtype === 'comp');
+    const dealFiles = files.filter(f => f.subtype === 'deal');
+    const prodFiles = files.filter(f => f.subtype === 'prod');
+    if (prodFiles.length > 0) {
+        html += '<div class="sidebar-count-item"><span class="icon">📄</span><span class="name">' + prodFiles.length + ' product(s)</span></div>';
+    }
+    if (compFiles.length > 0) {
+        html += '<div class="sidebar-count-item"><span class="icon">🏢</span><span class="name">' + compFiles.length + ' company file(s)</span></div>';
+    }
+    if (dealFiles.length > 0) {
+        html += '<div class="sidebar-count-item"><span class="icon">🤝</span><span class="name">' + dealFiles.length + ' deal(s)</span></div>';
+    }
     if (!folders.length && !files.length) html = '<div class="empty-tab">Empty directory</div>';
     container.innerHTML = html;
     container.querySelectorAll('.file-item').forEach(el => {
@@ -390,10 +400,13 @@ async function renderListView(dir, items) {
     });
 
     html += '</tbody></table>';
-    container.innerHTML = html;
+    // Clone and replace to strip old event listeners
+    const newContainer = container.cloneNode(false);
+    newContainer.innerHTML = html;
+    container.parentNode.replaceChild(newContainer, container);
 
     // Event delegation: handle clicks on list-view rows
-    container.addEventListener('click', function(e) {
+    newContainer.addEventListener('click', function(e) {
         const row = e.target.closest('.list-row');
         if (!row) return;
         const action = row.dataset.action;
@@ -404,7 +417,7 @@ async function renderListView(dir, items) {
             openFileInEditor(path, row.dataset.subtype);
         }
     });
-    container.addEventListener('contextmenu', function(e) {
+    newContainer.addEventListener('contextmenu', function(e) {
         const row = e.target.closest('.list-row');
         if (!row) return;
         e.preventDefault();
