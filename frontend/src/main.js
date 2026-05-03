@@ -319,7 +319,7 @@ function updateProductCard(path, product) {
 }
 
 // ── List View ──
-function renderListView(dir, items) {
+async function renderListView(dir, items) {
     const container = document.getElementById('list-view');
     const folders = items.filter(i => i.type === 'folder');
     const compItems = items.filter(i => i.type === 'file' && i.subtype === 'comp');
