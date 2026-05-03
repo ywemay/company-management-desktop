@@ -595,26 +595,44 @@ class Api:
         return result or []
 
     # ── Editor Window Launchers ──
+    def _launch_editor(self, title, url):
+        """Open editor in a new PyWebView window (thread-safe via GUI dispatch)."""
+        log(f"Launching editor: {title} -> {url}")
+        try:
+            import webview
+            webview.create_window(
+                title,
+                url=url,
+                width=800, height=700, resizable=True,
+            )
+            return True
+        except Exception as e:
+            log_error(f"Failed to create editor window: {e}")
+            return False
+
     def openProductEditor(self, path):
-        """Open a product editor in the system browser."""
+        """Open a product editor in a new PyWebView window."""
         log(f"openProductEditor: {path}")
-        import webbrowser
-        webbrowser.open(f"http://127.0.0.1:{_api_port}/editor/product?path={path}")
-        return True
+        return self._launch_editor(
+            f"Product - {os.path.basename(path)}",
+            f"http://127.0.0.1:{_api_port}/editor/product?path={path}"
+        )
 
     def openCompanyEditor(self, path):
-        """Open a company editor in the system browser."""
+        """Open a company editor in a new PyWebView window."""
         log(f"openCompanyEditor: {path}")
-        import webbrowser
-        webbrowser.open(f"http://127.0.0.1:{_api_port}/editor/company?path={path}")
-        return True
+        return self._launch_editor(
+            f"Company - {os.path.basename(path)}",
+            f"http://127.0.0.1:{_api_port}/editor/company?path={path}"
+        )
 
     def openDealEditor(self, path):
-        """Open a deal editor in the system browser."""
+        """Open a deal editor in a new PyWebView window."""
         log(f"openDealEditor: {path}")
-        import webbrowser
-        webbrowser.open(f"http://127.0.0.1:{_api_port}/editor/deal?path={path}")
-        return True
+        return self._launch_editor(
+            f"Deal - {os.path.basename(path)}",
+            f"http://127.0.0.1:{_api_port}/editor/deal?path={path}"
+        )
 
     def openNewProductEditor(self, dir_path):
         """Create a new .prod file and open its editor in a new window."""
