@@ -191,6 +191,16 @@ body { display: flex; flex-direction: column; }
     box-shadow: 0 6px 20px var(--shadow);
     border-color: var(--accent);
 }
+.product-card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(94,129,172,0.3);
+    background: var(--bg-hover);
+}
+.list-row.selected {
+    background: var(--bg-hover);
+    border-left: 3px solid var(--accent);
+    box-shadow: inset 2px 0 0 var(--accent);
+}
 .product-card .card-thumb {
     width: 100%;
     aspect-ratio: 1;

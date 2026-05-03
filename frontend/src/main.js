@@ -10,6 +10,9 @@ const state = {
     viewMode: 'grid',  // 'grid' or 'list'
     searchQuery: '',
     searchTimer: null,
+    selectedItems: [],  // paths of selected items
+    lastClickedPath: null,
+    clipboard: { items: [], operation: null },  // 'copy' or 'cut'
 };
 
 // ── Init ──
@@ -228,9 +231,28 @@ async function applySearchFilter() {
 
 // ── Gallery (Card Grid) ──
 function setupGalleryEvents() {
-    document.getElementById('gallery-grid').addEventListener('click', (e) => {
+    const grid = document.getElementById('gallery-grid');
+    grid.addEventListener('click', (e) => {
         const card = e.target.closest('.product-card');
         if (!card) return;
+
+        const path = card.dataset.file || card.dataset.folder || card.dataset.compPath || card.dataset.dealPath;
+
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSelection(path);
+            return;
+        }
+        if (e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectRange(path);
+            return;
+        }
+
+        // Regular click: clear selection, then open
+        clearSelection();
         if (card.dataset.folder) {
             loadDirectory(state.currentDir + '/' + card.dataset.folder);
             return;
@@ -246,7 +268,8 @@ function setupGalleryEvents() {
         const file = card.dataset.file;
         if (file) openFileInEditor(file, 'prod');
     });
-    document.getElementById('gallery-grid').addEventListener('contextmenu', (e) => {
+
+    grid.addEventListener('contextmenu', (e) => {
         const card = e.target.closest('.product-card');
         if (!card) {
             e.preventDefault();
@@ -258,10 +281,85 @@ function setupGalleryEvents() {
         const compPath = card.dataset.compPath;
         const dealPath = card.dataset.dealPath;
         e.preventDefault();
-        if (file) showFileContextMenu(e, file, 'prod');
-        else if (compPath) showFileContextMenu(e, compPath, 'comp');
-        else if (dealPath) showFileContextMenu(e, dealPath, 'deal');
-        else showNewItemContextMenu(e);
+        const path = file || compPath || dealPath;
+        const subtype = file ? 'prod' : compPath ? 'comp' : dealPath ? 'deal' : '';
+        // If selected set is non-empty and this item is in it, show multi-delete menu
+        if (state.selectedItems.length > 0 && state.selectedItems.includes(path)) {
+            showMultiSelectContextMenu(e);
+        } else {
+            if (file) showFileContextMenu(e, file, 'prod');
+            else if (compPath) showFileContextMenu(e, compPath, 'comp');
+            else if (dealPath) showFileContextMenu(e, dealPath, 'deal');
+            else showNewItemContextMenu(e);
+        }
+    });
+
+    // Click on empty space clears selection
+    grid.addEventListener('click', (e) => {
+        if (e.target === grid || e.target.closest('.empty-tab')) {
+            clearSelection();
+        }
+    });
+}
+
+// ── Selection Helpers ──
+function clearSelection() {
+    state.selectedItems = [];
+    state.lastClickedPath = null;
+    document.querySelectorAll('.product-card.selected, .list-row.selected').forEach(el => {
+        el.classList.remove('selected');
+    });
+}
+
+function toggleSelection(path) {
+    if (!path) return;
+    const idx = state.selectedItems.indexOf(path);
+    if (idx >= 0) {
+        state.selectedItems.splice(idx, 1);
+    } else {
+        state.selectedItems.push(path);
+    }
+    state.lastClickedPath = path;
+    updateSelectionUI();
+}
+
+function selectRange(path) {
+    if (!path) return;
+    if (!state.lastClickedPath) {
+        toggleSelection(path);
+        return;
+    }
+    // Get all item paths in current order
+    const allPaths = [];
+    document.querySelectorAll('.product-card[data-file], .product-card[data-folder], .product-card[data-comp-path], .product-card[data-deal-path]').forEach(el => {
+        const p = el.dataset.file || el.dataset.folder || el.dataset.compPath || el.dataset.dealPath;
+        if (p) allPaths.push(p);
+    });
+    const startIdx = allPaths.indexOf(state.lastClickedPath);
+    const endIdx = allPaths.indexOf(path);
+    if (startIdx === -1 || endIdx === -1) {
+        toggleSelection(path);
+        return;
+    }
+    const min = Math.min(startIdx, endIdx);
+    const max = Math.max(startIdx, endIdx);
+    for (let i = min; i <= max; i++) {
+        if (!state.selectedItems.includes(allPaths[i])) {
+            state.selectedItems.push(allPaths[i]);
+        }
+    }
+    state.lastClickedPath = path;
+    updateSelectionUI();
+}
+
+function updateSelectionUI() {
+    document.querySelectorAll('.product-card, .list-row').forEach(el => {
+        const path = el.dataset.file || el.dataset.folder || el.dataset.compPath || el.dataset.dealPath || el.dataset.path;
+        if (path && state.selectedItems.includes(path)) {
+            el.classList.add('selected');
+        } else {
+            el.classList.remove('selected');
+        }
     });
 }
 
@@ -484,8 +582,23 @@ async function renderListView(dir, items) {
     newContainer.addEventListener('click', function(e) {
         const row = e.target.closest('.list-row');
         if (!row) return;
-        const action = row.dataset.action;
         const path = row.dataset.path;
+        const action = row.dataset.action;
+
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleSelection(path);
+            return;
+        }
+        if (e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectRange(path);
+            return;
+        }
+
+        clearSelection();
         if (action === 'open') {
             loadDirectory(path);
         } else if (action === 'edit') {
@@ -498,8 +611,19 @@ async function renderListView(dir, items) {
         e.preventDefault();
         const file = row.dataset.path;
         const subtype = row.dataset.subtype;
-        if (file && subtype) showFileContextMenu(e, file, subtype);
-        else showNewItemContextMenu(e);
+        // If selected set is non-empty and this item is in it, show multi-delete menu
+        if (state.selectedItems.length > 0 && state.selectedItems.includes(file)) {
+            showMultiSelectContextMenu(e);
+        } else {
+            if (file && subtype) showFileContextMenu(e, file, subtype);
+            else showNewItemContextMenu(e);
+        }
+    });
+    // Click on empty area clears selection
+    newContainer.addEventListener('click', function(e) {
+        if (e.target === newContainer || e.target.closest('.empty-tab')) {
+            clearSelection();
+        }
     });
 
     // Load product details progressively
@@ -724,13 +848,22 @@ function setupContextMenu() {
     document.getElementById('file-list').addEventListener('contextmenu', (e) => {
         if (e.target === document.getElementById('file-list') || e.target.closest('.empty-tab')) { e.preventDefault(); showNewItemContextMenu(e); }
     });
-    document.getElementById('browser-grid').addEventListener('contextmenu', (e) => {
-        if (e.target === document.getElementById('browser-grid') || e.target.closest('.empty-tab')) { e.preventDefault(); showNewItemContextMenu(e); }
+    document.getElementById('gallery-grid').addEventListener('contextmenu', (e) => {
+        if (e.target === document.getElementById('gallery-grid') || e.target.closest('.empty-tab')) { e.preventDefault(); showNewItemContextMenu(e); }
+    });
+    document.getElementById('list-view').addEventListener('contextmenu', (e) => {
+        if (e.target === document.getElementById('list-view') || e.target.closest('.empty-tab')) { e.preventDefault(); showNewItemContextMenu(e); }
     });
 }
 function showNewItemContextMenu(e) {
     hideAllContextMenus();
-    const m = document.getElementById('context-menu');
+    // Use the empty-space context menu that includes Paste
+    const m = document.getElementById('context-menu-empty');
+    // Update paste button visibility
+    const pasteItem = m.querySelector('[data-action="paste"]');
+    if (pasteItem) {
+        pasteItem.style.display = state.clipboard.items.length > 0 ? '' : 'none';
+    }
     m.style.left = e.clientX + 'px'; m.style.top = e.clientY + 'px'; m.style.display = 'block';
 }
 function showFileContextMenu(e, path, subtype) {
@@ -738,6 +871,18 @@ function showFileContextMenu(e, path, subtype) {
     const m = document.getElementById('context-menu-file');
     m.dataset.path = path; m.dataset.subtype = subtype || '';
     m.style.left = e.clientX + 'px'; m.style.top = e.clientY + 'px'; m.style.display = 'block';
+}
+function showMultiSelectContextMenu(e) {
+    hideAllContextMenus();
+    const m = document.getElementById('context-menu-multi');
+    const count = state.selectedItems.length;
+    m.style.left = e.clientX + 'px'; m.style.top = e.clientY + 'px'; m.style.display = 'block';
+    // Update labels with count
+    m.querySelectorAll('.context-menu-item').forEach(el => {
+        if (el.dataset.action === 'multi-copy') el.textContent = '📋 Copy ' + count + ' items';
+        else if (el.dataset.action === 'multi-cut') el.textContent = '✂️ Cut ' + count + ' items';
+        else if (el.dataset.action === 'multi-delete') el.textContent = '🗑 Delete ' + count + ' items';
+    });
 }
 function hideAllContextMenus() { document.querySelectorAll('.context-menu').forEach(m => m.style.display = 'none'); }
 
@@ -758,6 +903,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const path = m.dataset.path; const subtype = m.dataset.subtype;
             hideAllContextMenus();
             if (a === 'file-open') openFileInEditor(path, subtype);
+            else if (a === 'file-copy') {
+                state.clipboard = { items: [path], operation: 'copy' };
+                showMsg('Copied', 'info');
+            }
+            else if (a === 'file-cut') {
+                state.clipboard = { items: [path], operation: 'cut' };
+                showMsg('Cut', 'info');
+            }
             else if (a === 'file-delete') {
                 if (confirm('Delete ' + basename(path) + '?')) {
                     try { await api.deleteFiles([path]); if (state.currentDir) loadDirectory(state.currentDir); showMsg('Deleted', 'info'); }
@@ -766,7 +919,90 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+    // Multi-select context menu
+    document.querySelectorAll('#context-menu-multi .context-menu-item').forEach(el => {
+        el.addEventListener('click', async () => {
+            const a = el.dataset.action;
+            const paths = state.selectedItems.slice();
+            hideAllContextMenus();
+            if (a === 'multi-copy') {
+                state.clipboard = { items: paths, operation: 'copy' };
+                showMsg('Copied ' + paths.length + ' items', 'info');
+            }
+            else if (a === 'multi-cut') {
+                state.clipboard = { items: paths, operation: 'cut' };
+                showMsg('Cut ' + paths.length + ' items', 'info');
+            }
+            else if (a === 'multi-delete') {
+                if (confirm('Delete ' + paths.length + ' selected items?')) {
+                    try {
+                        await api.deleteFiles(paths);
+                        clearSelection();
+                        if (state.currentDir) loadDirectory(state.currentDir);
+                        showMsg('Deleted ' + paths.length + ' items', 'info');
+                    }
+                    catch (e) { showError(e); }
+                }
+            }
+            clearSelection();
+        });
+    });
+    // Empty-space context menu (paste)
+    document.querySelectorAll('#context-menu-empty .context-menu-item').forEach(el => {
+        el.addEventListener('click', async () => {
+            const a = el.dataset.action;
+            hideAllContextMenus();
+            if (a === 'new-folder') showCreateDirDialog();
+            else if (a === 'new-product') await createNewItem('product');
+            else if (a === 'new-company') await createNewItem('company');
+            else if (a === 'new-deal') await createNewItem('deal');
+            else if (a === 'paste') {
+                await handlePaste();
+            }
+        });
+    });
 });
+
+// ── Clipboard: Paste ──
+async function handlePaste() {
+    if (!state.clipboard.items.length || !state.currentDir) {
+        showMsg('Nothing to paste', 'error');
+        return;
+    }
+    if (state.clipboard.operation === 'cut') {
+        // Prevent paste into same location
+        const allSameDir = state.clipboard.items.every(p => dirname(p) === state.currentDir);
+        if (allSameDir) {
+            showMsg('Cannot paste cut items into the same directory', 'error');
+            return;
+        }
+        try {
+            const result = await api.moveItems(state.clipboard.items, state.currentDir);
+            if (result.errors && result.errors.length > 0) {
+                showMsg('Moved ' + result.moved.length + ' items, ' + result.errors.length + ' errors', 'warning');
+            } else {
+                showMsg('Moved ' + result.moved.length + ' items', 'success');
+            }
+            state.clipboard = { items: [], operation: null };
+            loadDirectory(state.currentDir);
+        } catch (e) {
+            showError(e);
+        }
+    } else {
+        try {
+            const result = await api.copyItems(state.clipboard.items, state.currentDir);
+            if (result.errors && result.errors.length > 0) {
+                showMsg('Copied ' + result.copied.length + ' items, ' + result.errors.length + ' errors', 'warning');
+            } else {
+                showMsg('Copied ' + result.copied.length + ' items', 'success');
+            }
+            state.clipboard = { items: [], operation: null };
+            loadDirectory(state.currentDir);
+        } catch (e) {
+            showError(e);
+        }
+    }
+}
 
 // ── Dialogs ──
 function setupModals() {
