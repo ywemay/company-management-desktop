@@ -330,6 +330,45 @@ body { display: flex; flex-direction: column; }
 .context-menu-item:hover { background: var(--accent); color: #fff; }
 .context-menu-divider { height: 1px; background: var(--border); margin: 4px 8px; }
 
+/* ── List View ── */
+#list-view {
+    flex: 1; overflow-y: auto;
+}
+.list-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    table-layout: fixed;
+}
+.list-table thead {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border);
+}
+.list-table th {
+    padding: 8px 10px; text-align: left; font-weight: 600;
+    font-size: 12px; color: var(--text-secondary);
+    white-space: nowrap;
+}
+.list-table td {
+    padding: 6px 10px; border-bottom: 1px solid var(--border-light);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.list-row { cursor: pointer; transition: background var(--transition); }
+.list-row:hover { background: var(--bg-hover); }
+.list-folder { font-weight: 500; }
+.list-comp .col-icon { color: var(--accent-green); }
+.list-deal .col-icon { color: var(--accent-yellow); }
+.list-prod .col-icon { color: var(--accent-blue); }
+.col-icon { width: 32px; text-align: center; font-size: 15px; }
+.col-name { width: auto; min-width: 120px; }
+.col-code { width: 120px; }
+.col-type { width: 100px; }
+.col-price { width: 90px; text-align: right; font-family: var(--font-mono); font-weight: 600; }
+.col-currency { width: 70px; }
+
+/* view toggle button */
+.sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+#view-toggle { font-size: 16px; padding: 1px 6px; }
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

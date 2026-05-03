@@ -103,12 +103,15 @@
                         <button class="btn btn-xs" data-action="go-up">⬆ Up</button>
                         <button class="btn btn-xs" data-action="refresh">🔄 Refresh</button>
                         <button class="btn btn-xs" data-action="new-folder">📁 New Folder</button>
+                        <span class="sep"></span>
+                        <button class="btn btn-xs" id="view-toggle" data-action="toggle-view" title="Toggle grid/list view">☰</button>
                     </div>
                     <div id="gallery-header">
                         <span id="gallery-count"></span>
-                        <span class="gallery-notice">Click a card to open the editor</span>
+                        <span class="gallery-notice">Click an item to open the editor</span>
                     </div>
                     <div id="gallery-grid"></div>
+                    <div id="list-view" style="display:none"></div>
                     <div id="gallery-progress" style="display:none">
                         <div class="spinner"></div>
                         <span id="gallery-progress-text">Loading products...</span>

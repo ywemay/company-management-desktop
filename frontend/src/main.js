@@ -7,6 +7,7 @@ const state = {
     items: [],
     settings: { defaultDir: '', currency: 'USD', company: '' },
     galleryAbort: false,
+    viewMode: 'grid',  // 'grid' or 'list'
 };
 
 // ── Init ──
@@ -79,7 +80,11 @@ async function loadDirectory(dir) {
         state.items = items;
         updateSidebarHeader(dir);
         renderSidebar(dir, items);
-        renderGallery(dir, items);
+        if (state.viewMode === 'grid') {
+            renderGallery(dir, items);
+        } else {
+            renderListView(dir, items);
+        }
         renderBreadcrumb(dir);
         document.getElementById('empty-state').style.display = 'none';
         document.getElementById('browser-view').style.display = 'block';
@@ -313,6 +318,128 @@ function updateProductCard(path, product) {
     }
 }
 
+// ── List View ──
+function renderListView(dir, items) {
+    const container = document.getElementById('list-view');
+    const folders = items.filter(i => i.type === 'folder');
+    const compItems = items.filter(i => i.type === 'file' && i.subtype === 'comp');
+    const dealItems = items.filter(i => i.type === 'file' && i.subtype === 'deal');
+    const prodItems = items.filter(i => i.type === 'file' && i.subtype === 'prod');
+
+    let html = '<table class="list-table"><thead><tr>' +
+        '<th class="col-icon"></th>' +
+        '<th class="col-name">Name</th>' +
+        '<th class="col-code">Code</th>' +
+        '<th class="col-type">Type</th>' +
+        '<th class="col-price">Price</th>' +
+        '<th class="col-currency">Currency</th>' +
+        '</tr></thead><tbody>';
+
+    const allItems = [];
+    if (dir !== '/') allItems.push({ kind: 'up', name: '..', dir: dirname(dir) });
+    folders.forEach(f => allItems.push({ kind: 'folder', data: f }));
+    compItems.forEach(f => allItems.push({ kind: 'comp', data: f }));
+    dealItems.forEach(f => allItems.push({ kind: 'deal', data: f }));
+    prodItems.forEach(f => allItems.push({ kind: 'prod', data: f }));
+
+    allItems.forEach(entry => {
+        if (entry.kind === 'up') {
+            html += '<tr class="list-row list-folder" onclick="loadDirectory(\'' + escapeHtml(entry.dir) + '\')">' +
+                '<td class="col-icon">📁</td><td class="col-name">..</td><td></td><td></td><td></td><td></td></tr>';
+            return;
+        }
+        const d = entry.data;
+        if (entry.kind === 'folder') {
+            const ci = d.company || {};
+            const onclick = 'loadDirectory(\'' + escapeHtml(state.currentDir + '/' + d.name) + '\')';
+            html += '<tr class="list-row list-folder" onclick="' + onclick + '">' +
+                '<td class="col-icon">📁</td>' +
+                '<td class="col-name">' + escapeHtml(d.name) + '</td>' +
+                '<td class="col-code"></td>' +
+                '<td class="col-type">' + (ci.name ? escapeHtml(ci.name) : 'Folder') + '</td>' +
+                '<td class="col-price"></td><td class="col-currency"></td></tr>';
+        } else if (entry.kind === 'comp') {
+            const ci = d.company || {};
+            const label = ci.company_type ? ci.company_type.replace(/_/g, ' ').replace(/\b\w/g, s => s.toUpperCase()) : 'Company';
+            html += '<tr class="list-row list-comp" onclick="openFileInEditor(\'' + escapeHtml(d.path) + '\',\'comp\')">' +
+                '<td class="col-icon">🏢</td>' +
+                '<td class="col-name">' + escapeHtml(ci.name || d.name) + '</td>' +
+                '<td class="col-code"></td>' +
+                '<td class="col-type">' + escapeHtml(label) + '</td>' +
+                '<td class="col-price"></td><td class="col-currency"></td></tr>';
+        } else if (entry.kind === 'deal') {
+            const meta = d.deal_info || {};
+            const statusEmoji = { pending: '⏳', confirmed: '✅', shipped: '🚚', completed: '🎉', cancelled: '🚫' }[meta.status] || '⏳';
+            html += '<tr class="list-row list-deal" onclick="openFileInEditor(\'' + escapeHtml(d.path) + '\',\'deal\')">' +
+                '<td class="col-icon">📋</td>' +
+                '<td class="col-name">' + escapeHtml(meta.title || d.name.replace(/\.deal$/, '')) + '</td>' +
+                '<td class="col-code"></td>' +
+                '<td class="col-type">' + statusEmoji + ' ' + (meta.status || 'deal') + '</td>' +
+                '<td class="col-price"></td><td class="col-currency"></td></tr>';
+        } else if (entry.kind === 'prod') {
+            // Render immediately, will be updated when product data loads
+            const name = d.name.replace(/\.prod$/, '');
+            html += '<tr class="list-row list-prod" data-file="' + escapeHtml(d.path) + '">' +
+                '<td class="col-icon">📄</td>' +
+                '<td class="col-name">' + escapeHtml(name) + '</td>' +
+                '<td class="col-code">loading...</td>' +
+                '<td class="col-type">Product</td>' +
+                '<td class="col-price">—</td><td class="col-currency"></td></tr>';
+        }
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+
+    // Click handler on table rows
+    container.querySelectorAll('.list-row').forEach(el => {
+        el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const file = el.dataset.file;
+            if (file) showFileContextMenu(e, file, 'prod');
+            else showNewItemContextMenu(e);
+        });
+    });
+
+    // Load product details progressively
+    const progress = document.getElementById('gallery-progress');
+    const progressText = document.getElementById('gallery-progress-text');
+    if (prodItems.length > 0) {
+        progress.style.display = 'flex';
+        progressText.textContent = 'Loading products...';
+        for (let i = 0; i < prodItems.length; i++) {
+            if (state.galleryAbort) break;
+            progressText.textContent = 'Loading ' + (i + 1) + '/' + prodItems.length + '...';
+            try {
+                const product = await api.openProduct(prodItems[i].path);
+                if (state.galleryAbort) break;
+                updateListRow(prodItems[i].path, product);
+            } catch (_) {}
+        }
+        progress.style.display = 'none';
+    }
+}
+
+function updateListRow(path, product) {
+    const escapedFile = CSS.escape(path);
+    const row = document.querySelector('.list-row[data-file="' + escapedFile + '"]');
+    if (!row) return;
+    row.querySelector('.col-name').textContent = product.title || path.split('/').pop().replace(/\.prod$/, '');
+    row.querySelector('.col-code').textContent = product.code || '—';
+    const priceCell = row.querySelector('.col-price');
+    const currencyCell = row.querySelector('.col-currency');
+    if (product.priceCount > 0 && product.lastPrice !== undefined) {
+        priceCell.textContent = product.lastPrice.toFixed(2);
+        currencyCell.textContent = product.lastCurrency || state.settings.currency || 'USD';
+    } else {
+        priceCell.textContent = '—';
+        currencyCell.textContent = '';
+    }
+    // Click handler that wasn't set during initial render
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', () => openFileInEditor(path, 'prod'));
+}
+
 // ── Breadcrumb ──
 function renderBreadcrumb(dir) {
     const container = document.getElementById('breadcrumb') || createBreadcrumb();
@@ -381,7 +508,7 @@ function setupMenuBar() {
         const a = el.dataset.action;
         if (['go-up','refresh','new-folder','change-dir','browse-startup-dir','browse-settings-dir',
              'set-startup-dir','skip-startup','cancel-createdir','do-create-dir',
-             'cancel-settings','save-settings','close-about'].includes(a)) {
+             'cancel-settings','save-settings','close-about','toggle-view'].includes(a)) {
             e.stopPropagation();
             handleMenuAction(a);
         }
@@ -464,6 +591,22 @@ async function handleMenuAction(action) {
             document.getElementById('about-overlay').classList.remove('show');
             document.getElementById('about-overlay').style.display = 'none';
             break;
+        case 'toggle-view': {
+            state.viewMode = state.viewMode === 'grid' ? 'list' : 'grid';
+            document.getElementById('view-toggle').textContent = state.viewMode === 'grid' ? '☰' : '⊞';
+            if (state.currentDir) {
+                if (state.viewMode === 'grid') {
+                    document.getElementById('list-view').style.display = 'none';
+                    document.getElementById('gallery-grid').style.display = 'grid';
+                    renderGallery(state.currentDir, state.items);
+                } else {
+                    document.getElementById('gallery-grid').style.display = 'none';
+                    document.getElementById('list-view').style.display = 'block';
+                    renderListView(state.currentDir, state.items);
+                }
+            }
+            break;
+        }
     }
 }
 
