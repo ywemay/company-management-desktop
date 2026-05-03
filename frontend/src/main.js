@@ -16,21 +16,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupSidebar();
     setupModals();
     setupGalleryEvents();
-    loadSettings().then(() => {
-        console.log('[main] Settings loaded:', JSON.stringify(state.settings));
-        console.log('[main] defaultDir:', state.settings.defaultDir);
-        console.log('[main] !defaultDir:', !state.settings.defaultDir);
-        // Also update the Settings dialog fields
-        const sd = document.getElementById('settings-dir');
-        if (sd) sd.value = state.settings.defaultDir || '';
-        const sc = document.getElementById('settings-company');
-        if (sc) sc.value = state.settings.company || '';
+    initSettings().then(() => {
         if (state.settings.defaultDir) {
-            console.log('[main] Auto-loading dir:', state.settings.defaultDir);
-            showMsg('Loading ' + state.settings.defaultDir, 'info');
             loadDirectory(state.settings.defaultDir);
         } else {
-            console.log('[main] No default dir, showing startup dialog');
             checkStartupDialog();
         }
     });
@@ -59,12 +48,25 @@ function showMsg(msg, type) {
 function showError(err) { showMsg(err.message || String(err), 'error'); }
 
 // ── Settings ──
-async function loadSettings() {
-    try {
-        state.settings = await api.getSettings();
-    } catch (e) {
-        state.settings = { defaultDir: '', currency: 'USD', company: '' };
+async function initSettings() {
+    // Try injected settings first (server-side rendered, always available)
+    if (window.__INITIAL_SETTINGS__ && window.__INITIAL_SETTINGS__.defaultDir) {
+        state.settings = window.__INITIAL_SETTINGS__;
+    } else {
+        // Fallback: fetch from API
+        try {
+            state.settings = await api.getSettings();
+        } catch (e) {
+            state.settings = { defaultDir: '', currency: 'USD', company: '' };
+        }
     }
+    // Pre-fill Settings dialog fields
+    const sd = document.getElementById('settings-dir');
+    if (sd) sd.value = state.settings.defaultDir || '';
+    const sc = document.getElementById('settings-company');
+    if (sc) sc.value = state.settings.company || '';
+    const scur = document.getElementById('settings-currency');
+    if (scur) scur.value = state.settings.currency || 'USD';
 }
 
 // ── Directory Loading ──

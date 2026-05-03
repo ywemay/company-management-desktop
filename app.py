@@ -126,8 +126,15 @@ def api_save_settings():
 def serve_index():
     with open(os.path.join(FRONTEND_DIR, "index.html"), "r") as f:
         html = f.read()
+    settings = _load_settings_file()
+    settings_json = json.dumps({
+        "defaultDir": settings.get("defaultDir", ""),
+        "currency": settings.get("currency", "USD"),
+        "company": settings.get("company", ""),
+    })
     inject = (
         f'<script>window.API_PORT = {_api_port};</script>\n'
+        f'<script>window.__INITIAL_SETTINGS__ = {settings_json};</script>\n'
         f'<script src="src/app.js"></script>'
     )
     html = html.replace('<script src="src/app.js"></script>', inject)
