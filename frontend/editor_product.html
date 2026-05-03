@@ -84,6 +84,7 @@ th { font-size:11px; color:var(--text-muted); font-weight:500; text-transform:up
     <span class="title" id="editor-title">Product Editor</span>
     <span id="modified-indicator" style="display:none;font-size:11px;color:var(--accent-yellow)">✏️ Modified</span>
     <span class="spacer"></span>
+    <button class="btn btn-sm" id="btn-linked" title="Open linked company and deals">🔗 Linked Items</button>
     <button class="btn btn-sm btn-primary" id="btn-save">💾 Save</button>
     <button class="btn btn-sm" id="btn-close" onclick="window.close()">✕ Close</button>
 </div>
@@ -155,6 +156,7 @@ var BASE = 'http://127.0.0.1:' + _port;
 
 var api = {
     open: (p) => apiCall('POST', BASE + '/api/open', { path: p }),
+    linkedItems: (p) => apiCall('POST', BASE + '/api/linked-items', { path: p }),
     save: (p, product) => apiCall('POST', BASE + '/api/save', { path: p, product: product }),
     addPrice: (p, currency, variation, price) => apiCall('POST', BASE + '/api/add-price', { path: p, currency: currency, variation: variation, price: price }),
     editPrice: (p, index, price, currency) => apiCall('POST', BASE + '/api/price/edit', { path: p, index: index, price: price, currency: currency }),
@@ -562,6 +564,60 @@ document.getElementById('add-price-btn').addEventListener('click', async functio
         showMsg('Price added', 'success');
         loadPriceHistory();
     } catch(e) { showMsg(e.message, 'error'); }
+});
+
+// ── Linked Items ──
+document.getElementById('btn-linked').addEventListener('click', async function() {
+    if (!state.path) { showMsg('No product loaded', 'error'); return; }
+    try {
+        var linked = await api.linkedItems(state.path);
+        if (!linked) { showMsg('No linked items found', 'info'); return; }
+        // Open company editor if available
+        if (linked.company_path) {
+            if (window.pywebview && window.pywebview.api && window.pywebview.api.openCompanyEditor) {
+                window.pywebview.api.openCompanyEditor(linked.company_path);
+            }
+        }
+        // Handle deals
+        if (linked.deals && linked.deals.length > 0) {
+            if (linked.deals.length === 1) {
+                // Open the single deal
+                var dealFullPath = linked.deals[0].filename;
+                // Get the deal directory from the deals dir
+                var parentDir = state.path.substring(0, state.path.lastIndexOf('/'));
+                var dealsDir = parentDir + '/Deals';
+                // We need to reconstruct the path. The .deal files are at .../Deals/<filename>
+                // But the API just has the filename. We got 'deals' from api/linked-items as list_deals returns dicts with filename
+                var dealPath = dealsDir + '/' + linked.deals[0].filename;
+                if (window.pywebview && window.pywebview.api && window.pywebview.api.openDealEditor) {
+                    window.pywebview.api.openDealEditor(dealPath);
+                }
+            } else {
+                // Multiple deals: show a prompt with picker
+                var msg = 'Select a deal to open:\n';
+                linked.deals.forEach(function(d, i) {
+                    msg += (i + 1) + '. ' + (d.title || d.filename) + ' (' + (d.status || 'unknown') + ')\n';
+                });
+                var choice = prompt(msg + '\nEnter number (1-' + linked.deals.length + ') or Cancel');
+                if (choice !== null) {
+                    var idx = parseInt(choice) - 1;
+                    if (idx >= 0 && idx < linked.deals.length) {
+                        var parentDir = state.path.substring(0, state.path.lastIndexOf('/'));
+                        var dealPath = parentDir + '/Deals/' + linked.deals[idx].filename;
+                        if (window.pywebview && window.pywebview.api && window.pywebview.api.openDealEditor) {
+                            window.pywebview.api.openDealEditor(dealPath);
+                        }
+                    } else {
+                        showMsg('Invalid selection', 'error');
+                    }
+                }
+            }
+        } else {
+            showMsg('Company opened (no deals found)', 'success');
+        }
+    } catch (e) {
+        showMsg('Failed to load linked items: ' + e.message, 'error');
+    }
 });
 
 // ── Init ──

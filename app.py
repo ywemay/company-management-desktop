@@ -434,8 +434,39 @@ def api_save_product():
         return json_err(str(e))
 
 
+# ---------------------------------------------------------------------------
+# Linked Items (for product editor to open company & deal)
+# ---------------------------------------------------------------------------
+@bottle_app.post("/api/linked-items")
+def api_linked_items():
+    """Get linked company and deal items for a product path.
+    Returns: { company_path, company_info, deals: [...] }
+    """
+    body = request.json or {}
+    product_path = body.get("path", "")
+    if not product_path:
+        return json_err("path is required")
+    parent_dir = os.path.dirname(product_path)
+    result = {"company_path": None, "company_info": None, "deals": []}
+    # Find company .comp file in parent directory
+    from prodlib.company import Company
+    comp_path = Company.find_company_file(parent_dir)
+    if comp_path and os.path.isfile(comp_path):
+        result["company_path"] = comp_path
+        try:
+            c = Company.load(parent_dir)
+            result["company_info"] = c.to_dict()
+        except Exception:
+            pass
+    # Find deals in Deals/ subfolder
+    deals_dir = os.path.join(parent_dir, "Deals")
+    if os.path.isdir(deals_dir):
+        from prodlib.deal import list_deals as _list_deals
+        result["deals"] = _list_deals(deals_dir)
+    return json_ok(result)
+
+
 @bottle_app.post("/api/delete-products")
-def api_delete_products():
     body = request.json or {}
     paths = body.get("paths", [])
     if not paths:
