@@ -35,11 +35,16 @@ DBG.log('state.settings defaultDir before init: "' + state.settings.defaultDir +
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
     DBG.log('DOMContentLoaded fired');
-    setupMenuBar();
-    setupContextMenu();
-    setupSidebar();
-    setupModals();
-    setupGalleryEvents();
+    DBG.log('Calling setupMenuBar...');
+    try { setupMenuBar(); DBG.log('setupMenuBar OK'); } catch(e) { DBG.error('setupMenuBar FAILED: ' + e.message); }
+    DBG.log('Calling setupContextMenu...');
+    try { setupContextMenu(); DBG.log('setupContextMenu OK'); } catch(e) { DBG.error('setupContextMenu FAILED: ' + e.message); }
+    DBG.log('Calling setupSidebar...');
+    try { setupSidebar(); DBG.log('setupSidebar OK'); } catch(e) { DBG.error('setupSidebar FAILED: ' + e.message); }
+    DBG.log('Calling setupModals...');
+    try { setupModals(); DBG.log('setupModals OK'); } catch(e) { DBG.error('setupModals FAILED: ' + e.message); }
+    DBG.log('Calling setupGalleryEvents...');
+    try { setupGalleryEvents(); DBG.log('setupGalleryEvents OK'); } catch(e) { DBG.error('setupGalleryEvents FAILED: ' + e.message); }
     DBG.log('Calling initSettings()...');
     initSettings().then(() => {
         DBG.log('initSettings() resolved, defaultDir="' + state.settings.defaultDir + '"');
