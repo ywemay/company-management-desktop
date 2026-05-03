@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadSettings().then(() => {
         if (state.settings.defaultDir) {
             loadDirectory(state.settings.defaultDir);
+        } else {
+            checkStartupDialog();
         }
     });
 });
@@ -526,13 +528,13 @@ function showAboutDialog() {
     o.style.display = 'flex'; o.classList.add('show');
 }
 
-// ── Startup dialog ──
-if (!state.settings.defaultDir) {
-    setTimeout(() => {
+// ── Startup dialog (called after settings are loaded) ──
+function checkStartupDialog() {
+    if (!state.settings.defaultDir) {
         const o = document.getElementById('startup-overlay');
         if (o && !state.currentDir) {
             o.style.display = 'flex'; o.classList.add('show');
             document.getElementById('startup-dir-input').value = state.settings.defaultDir || '';
         }
-    }, 200);
+    }
 }
