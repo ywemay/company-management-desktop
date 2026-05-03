@@ -1,6 +1,29 @@
 /* Company Management Desktop — File Browser UI */
 /* global api, callNative, escapeHtml, showMsg */
 
+// ── Debug logging (piped to server stderr) ──
+const DBG = {
+    _send: function(level, msg) {
+        try {
+            fetch('/api/log-client-error', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({level: level || 'log', msg: String(msg), url: location.href})
+            }).catch(function(){});
+        } catch(e) {}
+    },
+    log: function(msg) { console.log('[dbg]', msg); this._send('log', msg); },
+    error: function(msg) { console.error('[dbg]', msg); this._send('error', msg); },
+};
+DBG.log('main.js loaded');
+DBG.log('window.__INITIAL_SETTINGS__ exists: ' + (typeof window.__INITIAL_SETTINGS__ !== 'undefined'));
+if (window.__INITIAL_SETTINGS__) {
+    DBG.log('INITIAL_SETTINGS: ' + JSON.stringify(window.__INITIAL_SETTINGS__));
+    DBG.log('INITIAL_SETTINGS.defaultDir: "' + (window.__INITIAL_SETTINGS__.defaultDir || '') + '"');
+} else {
+    DBG.log('__INITIAL_SETTINGS__ is UNDEFINED (not injected)');
+}
+DBG.log('state.settings defaultDir before init: "' + state.settings.defaultDir + '"');
+
 // ── State ──
 const state = {
     currentDir: null,
@@ -11,17 +34,24 @@ const state = {
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
+    DBG.log('DOMContentLoaded fired');
     setupMenuBar();
     setupContextMenu();
     setupSidebar();
     setupModals();
     setupGalleryEvents();
+    DBG.log('Calling initSettings()...');
     initSettings().then(() => {
+        DBG.log('initSettings() resolved, defaultDir="' + state.settings.defaultDir + '"');
         if (state.settings.defaultDir) {
+            DBG.log('Will load directory: ' + state.settings.defaultDir);
             loadDirectory(state.settings.defaultDir);
         } else {
+            DBG.log('No default dir, showing startup dialog');
             checkStartupDialog();
         }
+    }).catch(function(e) {
+        DBG.error('initSettings() threw: ' + (e.message || String(e)));
     });
 });
 
@@ -49,17 +79,31 @@ function showError(err) { showMsg(err.message || String(err), 'error'); }
 
 // ── Settings ──
 async function initSettings() {
+    DBG.log('initSettings() called');
+    DBG.log('window.__INITIAL_SETTINGS__: ' + (window.__INITIAL_SETTINGS__ ? JSON.stringify(window.__INITIAL_SETTINGS__) : 'null'));
+    DBG.log('window.__INITIAL_SETTINGS__.defaultDir: "' + ((window.__INITIAL_SETTINGS__ && window.__INITIAL_SETTINGS__.defaultDir) || '') + '"');
+    DBG.log('!window.__INITIAL_SETTINGS__: ' + !window.__INITIAL_SETTINGS__);
+    DBG.log('!window.__INITIAL_SETTINGS__.defaultDir: ' + (!(window.__INITIAL_SETTINGS__ && window.__INITIAL_SETTINGS__.defaultDir)));
+    
     // Try injected settings first (server-side rendered, always available)
     if (window.__INITIAL_SETTINGS__ && window.__INITIAL_SETTINGS__.defaultDir) {
+        DBG.log('Using injected settings: ' + JSON.stringify(window.__INITIAL_SETTINGS__));
         state.settings = window.__INITIAL_SETTINGS__;
     } else {
+        DBG.log('Injected settings empty/missing, trying API fallback...');
         // Fallback: fetch from API
         try {
-            state.settings = await api.getSettings();
+            const apiResult = await api.getSettings();
+            DBG.log('API fallback result: ' + JSON.stringify(apiResult));
+            state.settings = apiResult || { defaultDir: '', currency: 'USD', company: '' };
         } catch (e) {
+            DBG.error('API fallback failed: ' + (e.message || String(e)));
             state.settings = { defaultDir: '', currency: 'USD', company: '' };
         }
     }
+    DBG.log('Final state.settings: ' + JSON.stringify(state.settings));
+    DBG.log('Final defaultDir: "' + state.settings.defaultDir + '"');
+    
     // Pre-fill Settings dialog fields
     const sd = document.getElementById('settings-dir');
     if (sd) sd.value = state.settings.defaultDir || '';
@@ -67,6 +111,7 @@ async function initSettings() {
     if (sc) sc.value = state.settings.company || '';
     const scur = document.getElementById('settings-currency');
     if (scur) scur.value = state.settings.currency || 'USD';
+    DBG.log('initSettings() complete');
 }
 
 // ── Directory Loading ──
@@ -408,18 +453,25 @@ async function handleMenuAction(action) {
             } catch (e) { showError(e); } break;
         case 'set-startup-dir': {
             const d = document.getElementById('startup-dir-input').value.trim();
+            DBG.log('set-startup-dir called with: "' + d + '"');
             if (d) {
                 state.settings.defaultDir = d;
+                DBG.log('Calling api.saveSettings with: ' + JSON.stringify(state.settings));
                 try {
-                    await api.saveSettings(state.settings);
+                    const result = await api.saveSettings(state.settings);
+                    DBG.log('saveSettings result: ' + JSON.stringify(result));
                     showMsg('Default directory saved', 'success');
                 } catch (e) {
+                    DBG.error('saveSettings FAILED: ' + (e.message || String(e)));
                     showError(e);
                 }
                 document.getElementById('startup-overlay').classList.remove('show');
                 document.getElementById('startup-overlay').style.display = 'none';
                 loadDirectory(d);
-            } break;
+            } else {
+                DBG.log('set-startup-dir: empty directory, doing nothing');
+            }
+            break;
         }
         case 'skip-startup':
             document.getElementById('startup-overlay').classList.remove('show');
@@ -449,12 +501,17 @@ async function handleMenuAction(action) {
             state.settings.defaultDir = document.getElementById('settings-dir').value.trim();
             state.settings.company = document.getElementById('settings-company').value.trim();
             state.settings.currency = document.getElementById('settings-currency').value.trim().toUpperCase();
+            DBG.log('save-settings called: ' + JSON.stringify(state.settings));
             try {
-                await api.saveSettings(state.settings);
+                const result = await api.saveSettings(state.settings);
+                DBG.log('save-settings result: ' + JSON.stringify(result));
                 document.getElementById('settings-overlay').classList.remove('show');
                 document.getElementById('settings-overlay').style.display = 'none';
                 showMsg('Settings saved', 'success');
-            } catch (e) { showError(e); } break;
+            } catch (e) { 
+                DBG.error('save-settings FAILED: ' + (e.message || String(e)));
+                showError(e); 
+            } break;
         }
         case 'close-about':
             document.getElementById('about-overlay').classList.remove('show');
@@ -548,11 +605,20 @@ function showAboutDialog() {
 
 // ── Startup dialog (called after settings are loaded) ──
 function checkStartupDialog() {
+    DBG.log('checkStartupDialog() called');
+    DBG.log('state.settings.defaultDir="' + state.settings.defaultDir + '"');
+    DBG.log('state.currentDir=' + state.currentDir);
     if (!state.settings.defaultDir) {
         const o = document.getElementById('startup-overlay');
+        DBG.log('startup overlay element: ' + (o ? 'found' : 'NOT FOUND'));
         if (o && !state.currentDir) {
+            DBG.log('Showing startup dialog');
             o.style.display = 'flex'; o.classList.add('show');
             document.getElementById('startup-dir-input').value = state.settings.defaultDir || '';
+        } else {
+            DBG.log('NOT showing - o=' + (!!o) + ' currentDir=' + state.currentDir);
         }
+    } else {
+        DBG.log('Skipping startup dialog (has defaultDir)');
     }
 }

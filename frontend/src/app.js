@@ -1,15 +1,38 @@
 /* Company Management Desktop — API client */
 /* global window: false */
 
+/* ── Debug logger (piped to server) ── */
+const apiDbg = {
+    _send: function(level, msg) {
+        try {
+            fetch('/api/log-client-error', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({level: level || 'log', msg: String(msg).substring(0, 500), url: location.href})
+            }).catch(function(){});
+        } catch(e) {}
+    },
+    log: function(msg) { console.log('[api-dbg]', msg); this._send('log', msg); },
+    error: function(msg) { console.error('[api-dbg]', msg); this._send('error', msg); },
+};
+apiDbg.log('app.js loaded');
+
 async function apiCall(method, url, body) {
-    const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Request failed');
-    return data.data;
+    apiDbg.log('apiCall ' + method + ' ' + url + ' body=' + (body ? JSON.stringify(body).substring(0, 200) : 'null'));
+    try {
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: body ? JSON.stringify(body) : undefined,
+        });
+        apiDbg.log('apiCall response status: ' + res.status);
+        const data = await res.json();
+        apiDbg.log('apiCall response body: ' + JSON.stringify(data).substring(0, 300));
+        if (!data.ok) throw new Error(data.error || 'Request failed');
+        return data.data;
+    } catch (e) {
+        apiDbg.error('apiCall FAILED: ' + (e.message || String(e)));
+        throw e;
+    }
 }
 
 const api = {
