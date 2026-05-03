@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deal Editor</title>
+<style>
+:root {
+    --bg-primary: #ffffff; --bg-secondary: #f5f6f8; --bg-tertiary: #ecedef;
+    --bg-hover: #eceff4; --text-primary: #2e3440; --text-secondary: #4c566a;
+    --text-muted: #81a1c1; --border: #d8dee9; --accent: #5e81ac;
+    --accent-hover: #4a6f94; --accent-green: #a3be8c; --accent-red: #bf616a;
+    --accent-blue: #88c0d0; --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    --radius: 6px; --radius-sm: 4px; --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --transition: 150ms ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--font); font-size:14px; color:var(--text-primary); background:var(--bg-primary); overflow:hidden; height:100vh; display:flex; flex-direction:column; }
+#app { display:flex; flex-direction:column; height:100vh; }
+#topbar { display:flex; align-items:center; padding:8px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border); gap:10px; flex-shrink:0; }
+#topbar .title { font-weight:600; font-size:14px; flex:1; }
+#content { flex:1; overflow-y:auto; padding:20px; }
+.section-header { font-size:13px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin:16px 0 8px; }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px; font-weight:500; }
+.form-group input, .form-group textarea, .form-group select {
+    width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm);
+    font-size:13px; font-family:var(--font); background:var(--bg-primary); color:var(--text-primary);
+    outline:none; transition:var(--transition);
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(94,129,172,0.2); }
+.form-row { display:flex; gap:12px; flex-wrap:wrap; }
+.form-row .form-group { flex:1; min-width:120px; }
+.btn {
+    display:inline-flex; align-items:center; gap:4px; padding:6px 14px;
+    border:1px solid var(--border); border-radius:var(--radius-sm);
+    background:var(--bg-primary); cursor:pointer; font-size:13px;
+    color:var(--text-primary); transition:var(--transition);
+}
+.btn:hover { background:var(--bg-hover); border-color:var(--accent); }
+.btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn-primary:hover { background:var(--accent-hover); }
+.btn-danger { color:var(--accent-red); border-color:var(--accent-red); }
+.btn-danger:hover { background:var(--accent-red); color:#fff; }
+.btn-sm { padding:4px 10px; font-size:12px; }
+.btn-xs { padding:2px 8px; font-size:11px; }
+.spacer { flex:1; }
+table { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:12px; }
+th, td { padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
+th { font-size:11px; color:var(--text-muted); font-weight:500; text-transform:uppercase; }
+.card { border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:8px; background:var(--bg-secondary); }
+.card-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-weight:600; font-size:13px; }
+.errormsg { background:var(--accent-red); color:#fff; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; font-size:13px; }
+.successmsg { background:var(--accent-green); color:#fff; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="app">
+<div id="topbar">
+    <span id="editor-icon">🤝</span>
+    <span class="title" id="editor-title">Deal Editor</span>
+    <span class="spacer"></span>
+    <button class="btn btn-sm btn-primary" id="btn-save">💾 Save</button>
+    <button class="btn btn-sm" id="btn-close" onclick="window.close()">✕ Close</button>
+</div>
+<div id="content">
+    <div id="msg-area"></div>
+    <div id="editor-form">
+        <div class="form-row">
+            <div class="form-group"><label>Title</label><input type="text" id="f-title" /></div>
+            <div class="form-group"><label>Date</label><input type="date" id="f-date" /></div>
+            <div class="form-group"><label>Status</label>
+                <select id="f-status">
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Default Currency</label><input type="text" id="f-currency" maxlength="3" placeholder="USD" /></div>
+            <div class="form-group"><label>Additional Costs</label><input type="number" id="f-add-costs" step="0.01" /></div>
+            <div class="form-group"><label>Add. Costs Currency</label><input type="text" id="f-add-ccy" maxlength="3" placeholder="USD" /></div>
+        </div>
+        <div class="form-group"><label>Notes</label><textarea id="f-notes" rows="3"></textarea></div>
+
+        <!-- Order Items -->
+        <div class="section-header">Order Items</div>
+        <table id="order-table">
+            <thead><tr><th>Product</th><th>Title</th><th>Qty</th><th>Unit Price</th><th>Currency</th><th>Total</th><th>Notes</th><th></th></tr></thead>
+            <tbody id="order-tbody"></tbody>
+        </table>
+        <button class="btn btn-sm btn-primary" id="add-order-btn">➕ Add Item</button>
+
+        <!-- Warehouse Records -->
+        <div class="section-header" style="margin-top:20px">Warehouse Records</div>
+        <div id="warehouse-list"></div>
+        <button class="btn btn-sm btn-primary" id="add-warehouse-btn">➕ Add Record</button>
+    </div>
+</div>
+</div>
+<script>
+var state = { path: null, deal: null, modified: false };
+
+function getQueryParam(name) {
+    var m = location.search.match(new RegExp('[?&]' + name + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+}
+
+async function apiCall(method, url, body) {
+    var res = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Request failed');
+    return data.data;
+}
+
+var _port = window.API_PORT || 18000;
+var BASE = 'http://127.0.0.1:' + _port;
+
+var api = {
+    getDeal: (dir, filename) => apiCall('POST', BASE + '/api/deals/get', { dir: dir, filename: filename }),
+    saveDeal: (dir, deal) => apiCall('POST', BASE + '/api/deals/save', { dir: dir, deal: deal }),
+    deleteDeal: (dir, filename) => apiCall('POST', BASE + '/api/deals/delete', { dir: dir, filename: filename }),
+};
+
+function escapeHtml(s) { if (typeof s !== 'string') return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showMsg(msg, type) {
+    var area = document.getElementById('msg-area');
+    area.innerHTML = '<div class="' + (type === 'error' ? 'errormsg' : 'successmsg') + '">' + escapeHtml(msg) + '</div>';
+    setTimeout(function(){ area.innerHTML = ''; }, 4000);
+}
+
+function basename(p) { return p.split('/').filter(Boolean).pop() || p; }
+
+async function loadDeal(path) {
+    try {
+        state.path = path;
+        var dir = path.replace('/' + basename(path), '');
+        var filename = basename(path);
+        var d = await api.getDeal(dir, filename);
+        state.deal = d;
+        document.getElementById('editor-title').textContent = 'Deal - ' + (d.title || filename);
+        renderForm(d);
+    } catch (e) {
+        showMsg('Failed to load: ' + e.message, 'error');
+    }
+}
+
+function renderForm(d) {
+    document.getElementById('f-title').value = d.title || '';
+    document.getElementById('f-date').value = d.date || '';
+    document.getElementById('f-status').value = d.status || 'pending';
+    document.getElementById('f-currency').value = d.currency || 'USD';
+    document.getElementById('f-add-costs').value = d.additional_costs || '';
+    document.getElementById('f-add-ccy').value = d.additional_costs_currency || '';
+    document.getElementById('f-notes').value = d.notes || '';
+    renderOrders(d.order || []);
+    renderWarehouse(d.warehouse || []);
+}
+
+function renderOrders(orders) {
+    var tbody = document.getElementById('order-tbody');
+    if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">No order items.</td></tr>';
+        return;
+    }
+    var html = '';
+    orders.forEach(function(o, i) {
+        html += '<tr>';
+        html += '<td><input type="text" class="oi-product" value="' + escapeHtml(o.product || '') + '" style="width:100px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-i="' + i + '"/></td>';
+        html += '<td><input type="text" class="oi-title" value="' + escapeHtml(o.product_title || '') + '" style="width:120px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-i="' + i + '"/></td>';
+        html += '<td><input type="number" class="oi-qty" value="' + (o.quantity || 0) + '" style="width:60px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-i="' + i + '"/></td>';
+        html += '<td><input type="number" class="oi-price" step="0.01" value="' + (o.unit_price || 0) + '" style="width:80px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-i="' + i + '"/></td>';
+        html += '<td><input type="text" class="oi-ccy" value="' + escapeHtml(o.currency || '') + '" maxlength="3" style="width:40px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-i="' + i + '"/></td>';
+        html += '<td><input type="number" class="oi-total" step="0.01" value="' + (o.total || 0) + '" style="width:80px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-i="' + i + '"/></td>';
+        html += '<td><input type="text" class="oi-notes" value="' + escapeHtml(o.notes || '') + '" style="width:80px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-i="' + i + '"/></td>';
+        html += '<td><button class="btn btn-xs btn-danger oi-rm" data-i="' + i + '">✕</button></td>';
+        html += '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+function renderWarehouse(records) {
+    var container = document.getElementById('warehouse-list');
+    if (records.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:13px">No warehouse records.</div>';
+        return;
+    }
+    var html = '';
+    records.forEach(function(wr, ri) {
+        html += '<div class="card" data-ri="' + ri + '">';
+        html += '<div class="card-header">Record #' + (ri+1) + ' — Date: <input type="date" class="wr-date" value="' + (wr.date || '') + '" style="border:1px solid var(--border);border-radius:3px;padding:2px 6px;font-size:12px" data-ri="' + ri + '" />';
+        html += '<button class="btn btn-xs btn-danger wr-rm" data-ri="' + ri + '" style="margin-left:auto">✕ Remove</button></div>';
+        html += '<table style="margin-bottom:0"><thead><tr><th>Product</th><th>Title</th><th>Qty</th><th></th></tr></thead><tbody>';
+        (wr.items || []).forEach(function(item, ii) {
+            html += '<tr>';
+            html += '<td><input type="text" class="wi-product" value="' + escapeHtml(item.product || '') + '" style="width:100px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-ri="' + ri + '" data-ii="' + ii + '"/></td>';
+            html += '<td><input type="text" class="wi-title" value="' + escapeHtml(item.product_title || '') + '" style="width:120px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-ri="' + ri + '" data-ii="' + ii + '"/></td>';
+            html += '<td><input type="number" class="wi-qty" value="' + (item.quantity || 0) + '" style="width:60px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:12px" data-ri="' + ri + '" data-ii="' + ii + '"/></td>';
+            html += '<td><button class="btn btn-xs btn-danger wi-rm" data-ri="' + ri + '" data-ii="' + ii + '">✕</button></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        html += '<button class="btn btn-xs btn-primary wi-add" data-ri="' + ri + '" style="margin-top:4px">+ Item</button>';
+        html += '</div>';
+    });
+    container.innerHTML = html;
+}
+
+function collectOrders() {
+    var items = [];
+    document.querySelectorAll('#order-tbody tr').forEach(function(row) {
+        if (row.querySelector('td[colspan]')) return;
+        items.push({
+            product: (row.querySelector('.oi-product') || {}).value || '',
+            product_title: (row.querySelector('.oi-title') || {}).value || '',
+            quantity: parseInt((row.querySelector('.oi-qty') || {}).value) || 0,
+            unit_price: parseFloat((row.querySelector('.oi-price') || {}).value) || 0,
+            currency: (row.querySelector('.oi-ccy') || {}).value || '',
+            total: parseFloat((row.querySelector('.oi-total') || {}).value) || 0,
+            notes: (row.querySelector('.oi-notes') || {}).value || '',
+        });
+    });
+    return items;
+}
+
+function collectWarehouse() {
+    var records = [];
+    document.querySelectorAll('#warehouse-list .card').forEach(function(card) {
+        var ri = parseInt(card.dataset.ri);
+        var items = [];
+        card.querySelectorAll('tbody tr').forEach(function(row) {
+            if (row.querySelector('td[colspan]')) return;
+            items.push({
+                product: (row.querySelector('.wi-product') || {}).value || '',
+                product_title: (row.querySelector('.wi-title') || {}).value || '',
+                quantity: parseInt((row.querySelector('.wi-qty') || {}).value) || 0,
+            });
+        });
+        records.push({
+            date: (card.querySelector('.wr-date') || {}).value || '',
+            items: items,
+        });
+    });
+    return records;
+}
+
+async function handleSave() {
+    var dir = state.path.replace('/' + basename(state.path), '');
+    var data = {
+        filename: basename(state.path),
+        title: document.getElementById('f-title').value,
+        date: document.getElementById('f-date').value,
+        status: document.getElementById('f-status').value,
+        currency: document.getElementById('f-currency').value || 'USD',
+        additional_costs: parseFloat(document.getElementById('f-add-costs').value) || 0,
+        additional_costs_currency: document.getElementById('f-add-ccy').value || '',
+        notes: document.getElementById('f-notes').value,
+        order: collectOrders(),
+        warehouse: collectWarehouse(),
+    };
+    try {
+        var result = await api.saveDeal(dir, data);
+        state.deal = result;
+        showMsg('Saved!', 'success');
+    } catch(e) { showMsg('Save failed: ' + e.message, 'error'); }
+}
+
+// ── Wire buttons ──
+document.getElementById('btn-save').addEventListener('click', handleSave);
+document.getElementById('add-order-btn').addEventListener('click', function() {
+    var tbody = document.getElementById('order-tbody');
+    tbody.innerHTML = ''; // clear empty state
+    var orders = state.deal.order || [];
+    orders.push({ product: '', product_title: '', quantity: 0, unit_price: 0, currency: '', total: 0, notes: '' });
+    state.deal.order = orders;
+    renderOrders(orders);
+    // Wire remove buttons for the new row
+    tbody.querySelectorAll('.oi-rm').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var i = parseInt(this.dataset.i);
+            state.deal.order.splice(i, 1);
+            renderOrders(state.deal.order);
+        });
+    });
+});
+document.getElementById('add-warehouse-btn').addEventListener('click', function() {
+    var records = state.deal.warehouse || [];
+    records.push({ date: '', items: [] });
+    state.deal.warehouse = records;
+    renderWarehouse(records);
+});
+
+// Wire dynamic buttons via delegation
+document.addEventListener('click', function(e) {
+    var target = e.target;
+    // Remove order item
+    if (target.classList.contains('oi-rm')) {
+        var i = parseInt(target.dataset.i);
+        state.deal.order.splice(i, 1);
+        renderOrders(state.deal.order);
+    }
+    // Remove warehouse record
+    if (target.classList.contains('wr-rm')) {
+        var ri = parseInt(target.dataset.ri);
+        state.deal.warehouse.splice(ri, 1);
+        renderWarehouse(state.deal.warehouse);
+    }
+    // Remove warehouse item
+    if (target.classList.contains('wi-rm')) {
+        var ri = parseInt(target.dataset.ri);
+        var ii = parseInt(target.dataset.ii);
+        var rec = state.deal.warehouse[ri];
+        if (rec && rec.items) {
+            rec.items.splice(ii, 1);
+            renderWarehouse(state.deal.warehouse);
+        }
+    }
+    // Add warehouse item
+    if (target.classList.contains('wi-add')) {
+        var ri = parseInt(target.dataset.ri);
+        var rec = state.deal.warehouse[ri];
+        if (rec) {
+            if (!rec.items) rec.items = [];
+            rec.items.push({ product: '', product_title: '', quantity: 0 });
+            renderWarehouse(state.deal.warehouse);
+        }
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    var path = getQueryParam('path');
+    if (path) loadDeal(path);
+    else showMsg('No deal file specified', 'error');
+});
+</script>
+</body>
+</html>

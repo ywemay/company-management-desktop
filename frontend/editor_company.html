@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Company Editor</title>
+<style>
+:root {
+    --bg-primary: #ffffff; --bg-secondary: #f5f6f8; --bg-tertiary: #ecedef;
+    --bg-hover: #eceff4; --text-primary: #2e3440; --text-secondary: #4c566a;
+    --text-muted: #81a1c1; --border: #d8dee9; --accent: #5e81ac;
+    --accent-hover: #4a6f94; --accent-green: #a3be8c; --accent-red: #bf616a;
+    --accent-blue: #88c0d0; --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    --radius: 6px; --radius-sm: 4px; --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.12); --transition: 150ms ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--font); font-size:14px; color:var(--text-primary); background:var(--bg-primary); overflow:hidden; height:100vh; display:flex; flex-direction:column; }
+#app { display:flex; flex-direction:column; height:100vh; }
+#topbar { display:flex; align-items:center; padding:8px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border); gap:10px; flex-shrink:0; }
+#topbar .title { font-weight:600; font-size:14px; flex:1; }
+#content { flex:1; overflow-y:auto; padding:20px; }
+.section-header { font-size:13px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin:16px 0 8px; }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px; font-weight:500; }
+.form-group input, .form-group textarea {
+    width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm);
+    font-size:13px; font-family:var(--font); background:var(--bg-primary); color:var(--text-primary);
+    outline:none; transition:var(--transition);
+}
+.form-group input:focus, .form-group textarea:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(94,129,172,0.2); }
+.form-row { display:flex; gap:12px; flex-wrap:wrap; }
+.form-row .form-group { flex:1; min-width:150px; }
+.btn {
+    display:inline-flex; align-items:center; gap:4px; padding:6px 14px;
+    border:1px solid var(--border); border-radius:var(--radius-sm);
+    background:var(--bg-primary); cursor:pointer; font-size:13px;
+    color:var(--text-primary); transition:var(--transition);
+}
+.btn:hover { background:var(--bg-hover); border-color:var(--accent); }
+.btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn-primary:hover { background:var(--accent-hover); }
+.btn-danger { color:var(--accent-red); border-color:var(--accent-red); }
+.btn-danger:hover { background:var(--accent-red); color:#fff; }
+.btn-sm { padding:4px 10px; font-size:12px; }
+.spacer { flex:1; }
+.contact-card { border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:8px; background:var(--bg-secondary); }
+.contact-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-weight:600; font-size:13px; }
+.errormsg { background:var(--accent-red); color:#fff; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; font-size:13px; }
+.successmsg { background:var(--accent-green); color:#fff; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="app">
+<div id="topbar">
+    <span id="editor-icon">🏢</span>
+    <span class="title" id="editor-title">Company Editor</span>
+    <span class="spacer"></span>
+    <button class="btn btn-sm btn-primary" id="btn-save">💾 Save</button>
+    <button class="btn btn-sm" id="btn-close" onclick="window.close()">✕ Close</button>
+</div>
+<div id="content">
+    <div id="msg-area"></div>
+    <div id="editor-form">
+        <div class="form-row">
+            <div class="form-group"><label>Company Name</label><input type="text" id="f-name" /></div>
+            <div class="form-group"><label>Company Type</label><input type="text" id="f-type" placeholder="Manufacturer, Supplier, etc." /></div>
+        </div>
+        <div class="form-group"><label>Address</label><textarea id="f-address" rows="2"></textarea></div>
+        <div class="form-row">
+            <div class="form-group"><label>Website</label><input type="text" id="f-website" /></div>
+            <div class="form-group"><label>Emails (comma-separated)</label><input type="text" id="f-emails" /></div>
+            <div class="form-group"><label>Phones (comma-separated)</label><input type="text" id="f-phones" /></div>
+        </div>
+
+        <div class="section-header">Contacts</div>
+        <div id="contacts-list"></div>
+        <button class="btn btn-sm btn-primary" id="add-contact-btn" style="margin-top:8px">➕ Add Contact</button>
+    </div>
+</div>
+</div>
+<script>
+var state = { path: null, company: null, modified: false };
+
+function getQueryParam(name) {
+    var m = location.search.match(new RegExp('[?&]' + name + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+}
+
+async function apiCall(method, url, body) {
+    var res = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Request failed');
+    return data.data;
+}
+
+var _port = window.API_PORT || 18000;
+var BASE = 'http://127.0.0.1:' + _port;
+
+var api = {
+    getCompany: (dir) => apiCall('POST', BASE + '/api/company', { dir: dir }),
+    saveCompany: (dir, company) => apiCall('POST', BASE + '/api/company/save', { dir: dir, company: company }),
+    addContact: (dir, contact) => apiCall('POST', BASE + '/api/company/contact/add', { dir: dir, contact: contact }),
+    updateContact: (dir, index, contact) => apiCall('POST', BASE + '/api/company/contact/update', { dir: dir, index: index, contact: contact }),
+    deleteContact: (dir, index) => apiCall('POST', BASE + '/api/company/contact/delete', { dir: dir, index: index }),
+};
+
+function escapeHtml(s) { if (typeof s !== 'string') return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showMsg(msg, type) {
+    var area = document.getElementById('msg-area');
+    area.innerHTML = '<div class="' + (type === 'error' ? 'errormsg' : 'successmsg') + '">' + escapeHtml(msg) + '</div>';
+    setTimeout(function(){ area.innerHTML = ''; }, 4000);
+}
+
+function basename(p) { return p.split('/').filter(Boolean).pop() || p; }
+
+async function loadCompany(path) {
+    try {
+        state.path = path;
+        var dir = path;
+        if (!path.endsWith('.comp')) {
+            // path is a directory containing company.yaml / company.comp
+        } else {
+            dir = path.replace('/' + basename(path), '');
+        }
+        var c = await api.getCompany(dir);
+        state.company = c;
+        document.getElementById('editor-title').textContent = 'Company - ' + (c.name || basename(dir));
+        renderForm(c);
+    } catch (e) {
+        showMsg('Failed to load: ' + e.message, 'error');
+    }
+}
+
+function renderForm(c) {
+    document.getElementById('f-name').value = c.name || '';
+    document.getElementById('f-type').value = c.company_type || '';
+    document.getElementById('f-address').value = c.address || '';
+    document.getElementById('f-website').value = c.website || '';
+    document.getElementById('f-emails').value = (c.emails || []).join(', ');
+    document.getElementById('f-phones').value = (c.phones || []).join(', ');
+    renderContacts(c.contacts || []);
+}
+
+function renderContacts(contacts) {
+    var container = document.getElementById('contacts-list');
+    var html = '';
+    contacts.forEach(function(ct, idx) {
+        html += '<div class="contact-card" data-idx="' + idx + '">';
+        html += '<div class="contact-header">Contact #' + (idx+1) + '<button class="btn btn-xs btn-danger contact-rm" data-idx="' + idx + '" style="margin-left:auto">✕ Remove</button></div>';
+        html += '<div class="form-row">';
+        html += '<div class="form-group"><label>Name</label><input type="text" class="ct-fn" value="' + escapeHtml(ct.fn || '') + '" /></div>';
+        html += '<div class="form-group"><label>Phone</label><input type="text" class="ct-tel" value="' + escapeHtml(ct.tel || '') + '" /></div>';
+        html += '<div class="form-group"><label>Email</label><input type="text" class="ct-email" value="' + escapeHtml(ct.email || '') + '" /></div>';
+        html += '</div><div class="form-row">';
+        html += '<div class="form-group"><label>Organization</label><input type="text" class="ct-org" value="' + escapeHtml(ct.org || '') + '" /></div>';
+        html += '<div class="form-group"><label>Role</label><input type="text" class="ct-role" value="' + escapeHtml(ct.role || '') + '" /></div>';
+        html += '<div class="form-group"><label>Title</label><input type="text" class="ct-title" value="' + escapeHtml(ct.title || '') + '" /></div>';
+        html += '</div>';
+        html += '<div class="form-group"><label>Address</label><textarea class="ct-adr" rows="2">' + escapeHtml(ct.adr || '') + '</textarea></div>';
+        html += '<div class="form-group"><label>Note</label><textarea class="ct-note" rows="2">' + escapeHtml(ct.note || '') + '</textarea></div>';
+        html += '</div>';
+    });
+    container.innerHTML = html;
+
+    container.querySelectorAll('.contact-rm').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            var idx = parseInt(this.dataset.idx);
+            if (!confirm('Delete this contact?')) return;
+            try {
+                var dir = state.path.replace('/' + basename(state.path), '');
+                var result = await api.deleteContact(dir, idx);
+                state.company = result;
+                renderForm(result);
+            } catch(e) { showMsg(e.message, 'error'); }
+        });
+    });
+}
+
+function collectContacts() {
+    var contacts = [];
+    document.querySelectorAll('.contact-card').forEach(function(card) {
+        contacts.push({
+            fn: card.querySelector('.ct-fn').value || '',
+            tel: card.querySelector('.ct-tel').value || '',
+            email: card.querySelector('.ct-email').value || '',
+            org: card.querySelector('.ct-org').value || '',
+            role: card.querySelector('.ct-role').value || '',
+            title: card.querySelector('.ct-title').value || '',
+            adr: card.querySelector('.ct-adr').value || '',
+            note: card.querySelector('.ct-note').value || '',
+        });
+    });
+    return contacts;
+}
+
+async function handleSave() {
+    var dir = state.path;
+    if (dir.endsWith('.comp')) dir = dir.replace('/' + basename(dir), '');
+    var data = {
+        name: document.getElementById('f-name').value,
+        company_type: document.getElementById('f-type').value,
+        address: document.getElementById('f-address').value,
+        website: document.getElementById('f-website').value,
+        emails: document.getElementById('f-emails').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        phones: document.getElementById('f-phones').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        contacts: collectContacts(),
+    };
+    try {
+        var result = await api.saveCompany(dir, data);
+        state.company = result;
+        showMsg('Saved!', 'success');
+    } catch(e) { showMsg('Save failed: ' + e.message, 'error'); }
+}
+
+document.getElementById('btn-save').addEventListener('click', handleSave);
+document.getElementById('add-contact-btn').addEventListener('click', async function() {
+    var dir = state.path;
+    if (dir.endsWith('.comp')) dir = dir.replace('/' + basename(dir), '');
+    try {
+        var result = await api.addContact(dir, { fn: '', tel: '', email: '', org: '', role: '', title: '', adr: '', note: '' });
+        state.company = result;
+        renderForm(result);
+    } catch(e) { showMsg(e.message, 'error'); }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    var path = getQueryParam('path');
+    if (path) loadCompany(path);
+    else showMsg('No company file specified', 'error');
+});
+</script>
+</body>
+</html>

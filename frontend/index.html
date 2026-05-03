@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Management Desktop</title>
+    <link rel="stylesheet" href="src/style.css">
+    <script>
+    (function() {
+        var origError = console.error;
+        console.error = function() {
+            origError.apply(console, arguments);
+            try {
+                var msg = Array.from(arguments).map(String).join(' ');
+                fetch('/api/log-client-error', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({level: 'error', msg: msg, url: location.href})
+                }).catch(function(){});
+            } catch(e) {}
+        };
+        window.onerror = function(msg, url, line, col, err) {
+            fetch('/api/log-client-error', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    level: 'uncaught', msg: msg, url: url,
+                    line: line, col: col, stack: err ? err.stack : ''
+                })
+            }).catch(function(){});
+        };
+    })();
+    </script>
+</head>
+<body>
+    <div id="app">
+        <!-- Menu Bar -->
+        <div id="menubar">
+            <div class="menu-item" data-menu="file">
+                <span class="menu-label">File</span>
+                <div class="menu-dropdown">
+                    <div class="menu-dropdown-item" data-action="new-folder">📁 New Folder</div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-dropdown-item" data-action="settings">⚙️ Settings</div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-dropdown-item" data-action="exit">🚪 Exit</div>
+                </div>
+            </div>
+            <div class="menu-item" data-menu="new">
+                <span class="menu-label">New</span>
+                <div class="menu-dropdown">
+                    <div class="menu-dropdown-item" data-action="new-product">📄 New Product</div>
+                    <div class="menu-dropdown-item" data-action="new-company">🏢 New Company</div>
+                    <div class="menu-dropdown-item" data-action="new-deal">🤝 New Deal</div>
+                </div>
+            </div>
+            <div class="menu-item" data-menu="help">
+                <span class="menu-label">Help</span>
+                <div class="menu-dropdown">
+                    <div class="menu-dropdown-item" data-action="about">ℹ️ About</div>
+                </div>
+            </div>
+            <span class="menubar-title">Company Management Desktop</span>
+        </div>
+
+        <!-- Messages -->
+        <div id="messages"></div>
+
+        <!-- Main Content -->
+        <div id="main">
+            <!-- Sidebar (File Browser) -->
+            <div id="sidebar">
+                <div id="sidebar-header">
+                    <span id="dir-label" class="title">No directory selected</span>
+                    <span id="current-dir" class="dir-path"></span>
+                    <span class="spacer"></span>
+                    <button id="sidebar-change-dir" class="btn btn-xs" data-action="change-dir" title="Change directory">📂</button>
+                </div>
+                <div id="file-list">
+                    <div class="empty-tab">Open a directory to browse files</div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div id="content">
+                <!-- Empty State -->
+                <div id="empty-state">
+                    <div class="icon">📁</div>
+                    <p>
+                        Select a directory to browse files,<br>
+                        or create a new product, company, or deal.
+                    </p>
+                    <p style="margin-top:12px;font-size:12px;color:var(--text-muted)">
+                        Use File &gt; Settings to set your default directory.
+                    </p>
+                </div>
+
+                <!-- File Browser View -->
+                <div id="browser-view" style="display:none">
+                    <div id="browser-toolbar">
+                        <span id="dir-path-display"></span>
+                        <span class="spacer"></span>
+                        <button class="btn btn-xs" data-action="go-up">⬆ Up</button>
+                        <button class="btn btn-xs" data-action="refresh">🔄 Refresh</button>
+                        <button class="btn btn-xs" data-action="new-folder">📁 New Folder</button>
+                    </div>
+                    <div id="browser-grid"></div>
+                </div>
+
+
+            </div>
+        </div>
+
+        <!-- Startup Dialog -->
+        <div id="startup-overlay" class="modal-overlay">
+            <div class="modal">
+                <h3>📂 Welcome</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+                    Choose a directory to store your business files.
+                </p>
+                <div class="form-group">
+                    <label>Default Directory</label>
+                    <div class="input-with-btn">
+                        <input type="text" id="startup-dir-input" placeholder="/home/user/company-files" />
+                        <button class="btn btn-sm" data-action="browse-startup-dir">📂 Browse</button>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn" data-action="skip-startup">Skip</button>
+                    <button class="btn btn-primary" data-action="set-startup-dir">Set &amp; Open</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Folder Dialog -->
+        <div id="createdir-overlay" class="modal-overlay">
+            <div class="modal">
+                <h3>📁 New Folder</h3>
+                <div class="form-group">
+                    <label>Folder Name</label>
+                    <input type="text" id="createdir-name-input" placeholder="e.g. Electronics" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn" data-action="cancel-createdir">Cancel</button>
+                    <button class="btn btn-primary" data-action="do-create-dir">Create</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-overlay" class="modal-overlay">
+            <div class="modal">
+                <h3>⚙️ Settings</h3>
+                <div class="form-group">
+                    <label>Default Directory</label>
+                    <div class="input-with-btn">
+                        <input type="text" id="settings-dir" placeholder="/home/user/company-files" />
+                        <button class="btn btn-sm" data-action="browse-settings-dir">📂 Browse</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" id="settings-company" placeholder="Your company name" />
+                </div>
+                <div class="form-group">
+                    <label>Default Currency</label>
+                    <input type="text" id="settings-currency" maxlength="3" placeholder="USD" value="USD" />
+                </div>
+                <div class="modal-actions">
+                    <button class="btn" data-action="cancel-settings">Cancel</button>
+                    <button class="btn btn-primary" data-action="save-settings">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Modal -->
+        <div id="about-overlay" class="modal-overlay">
+            <div class="modal" style="text-align:center">
+                <h3>🏢 Company Management Desktop</h3>
+                <p style="color:var(--text-secondary);margin:12px 0">Version 1.0.0</p>
+                <p style="font-size:13px;color:var(--text-muted)">
+                    Manage products, companies, and deals<br>
+                    all in one unified desktop application.
+                </p>
+                <div class="modal-actions" style="justify-content:center">
+                    <button class="btn" data-action="close-about">OK</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Dialog -->
+        <div id="confirm-overlay" class="modal-overlay">
+            <div class="modal" style="min-width:300px;text-align:center">
+                <p id="confirm-message" style="margin:16px 0;font-size:14px;color:var(--text-primary)"></p>
+                <div class="modal-actions" style="justify-content:center;gap:12px">
+                    <button id="confirm-yes" class="btn btn-primary">Yes</button>
+                    <button id="confirm-no" class="btn">No</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prompt Dialog -->
+        <div id="prompt-overlay" class="modal-overlay">
+            <div class="modal" style="min-width:360px">
+                <p id="prompt-message" style="margin:0 0 12px;font-size:14px;color:var(--text-primary)"></p>
+                <div class="form-group">
+                    <input type="text" id="prompt-input" style="width:100%" />
+                </div>
+                <div class="modal-actions" style="justify-content:flex-end;gap:8px;margin-top:12px">
+                    <button id="prompt-cancel" class="btn">Cancel</button>
+                    <button id="prompt-ok" class="btn btn-primary">OK</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right-Click Context Menu -->
+        <div id="context-menu" class="context-menu" style="display:none">
+            <div class="context-menu-item" data-action="new-folder">📁 New Folder</div>
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-item" data-action="new-product">📄 New Product</div>
+            <div class="context-menu-item" data-action="new-company">🏢 New Company</div>
+            <div class="context-menu-item" data-action="new-deal">🤝 New Deal</div>
+        </div>
+        <div id="context-menu-file" class="context-menu" style="display:none">
+            <div class="context-menu-item" data-action="file-open">🔍 Open</div>
+            <div class="context-menu-item" data-action="file-delete">🗑 Delete</div>
+        </div>
+    </div>
+
+    <script src="src/app.js"></script>
+    <script src="src/main.js"></script>
+</body>
+</html>

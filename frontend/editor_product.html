@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Editor</title>
+<style>
+:root {
+    --bg-primary: #ffffff; --bg-secondary: #f5f6f8; --bg-tertiary: #ecedef;
+    --bg-hover: #eceff4; --text-primary: #2e3440; --text-secondary: #4c566a;
+    --text-muted: #81a1c1; --border: #d8dee9; --accent: #5e81ac;
+    --accent-hover: #4a6f94; --accent-green: #a3be8c; --accent-red: #bf616a;
+    --accent-blue: #88c0d0; --accent-yellow: #ebcb8b;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
+    --radius: 6px; --radius-sm: 4px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
+    --transition: 150ms ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--font); font-size:14px; color:var(--text-primary); background:var(--bg-primary); overflow:hidden; height:100vh; display:flex; flex-direction:column; }
+#app { display:flex; flex-direction:column; height:100vh; }
+#topbar { display:flex; align-items:center; padding:8px 16px; background:var(--bg-secondary); border-bottom:1px solid var(--border); gap:10px; flex-shrink:0; }
+#topbar .title { font-weight:600; font-size:14px; flex:1; }
+#content { flex:1; overflow-y:auto; padding:20px; }
+.section-header { font-size:13px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin:16px 0 8px; }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px; font-weight:500; }
+.form-group input, .form-group textarea, .form-group select {
+    width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm);
+    font-size:13px; font-family:var(--font); background:var(--bg-primary); color:var(--text-primary);
+    outline:none; transition:var(--transition);
+}
+.form-group input:focus, .form-group textarea:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(94,129,172,0.2); }
+.form-row { display:flex; gap:12px; flex-wrap:wrap; }
+.form-row .form-group { flex:1; min-width:120px; }
+.btn {
+    display:inline-flex; align-items:center; gap:4px; padding:6px 14px;
+    border:1px solid var(--border); border-radius:var(--radius-sm);
+    background:var(--bg-primary); cursor:pointer; font-size:13px;
+    color:var(--text-primary); transition:var(--transition);
+}
+.btn:hover { background:var(--bg-hover); border-color:var(--accent); }
+.btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn-primary:hover { background:var(--accent-hover); }
+.btn-danger { color:var(--accent-red); border-color:var(--accent-red); }
+.btn-danger:hover { background:var(--accent-red); color:#fff; }
+.btn-sm { padding:4px 10px; font-size:12px; }
+.btn-xs { padding:2px 8px; font-size:11px; }
+.spacer { flex:1; }
+table { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:12px; }
+th, td { padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
+th { font-size:11px; color:var(--text-muted); font-weight:500; text-transform:uppercase; }
+.photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; }
+.photo-item { position:relative; border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px; background:var(--bg-secondary); }
+.photo-item img { width:100%; height:80px; object-fit:cover; border-radius:3px; display:block; }
+.photo-item .remove-btn { position:absolute; top:2px; right:2px; background:rgba(191,97,106,0.85); color:#fff; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:11px; line-height:20px; text-align:center; }
+.photo-item .move-btn { position:absolute; bottom:2px; background:rgba(46,52,64,0.6); color:#fff; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:10px; }
+.photo-item .move-left { left:2px; }
+.photo-item .move-right { right:2px; }
+.photo-item .export-btn { position:absolute; bottom:2px; left:50%; transform:translateX(-50%); background:rgba(46,52,64,0.6); color:#fff; border:none; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:10px; }
+.photo-upload {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:90px; border:2px dashed var(--border); border-radius:var(--radius-sm);
+    cursor:pointer; color:var(--text-muted); font-size:12px; gap:4px;
+}
+.photo-upload:hover { border-color:var(--accent); color:var(--accent); }
+.errormsg { background:var(--accent-red); color:#fff; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; font-size:13px; }
+.successmsg { background:var(--accent-green); color:#fff; padding:8px 12px; border-radius:var(--radius-sm); margin-bottom:12px; font-size:13px; }
+.variation-group-card { border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; margin-bottom:8px; background:var(--bg-secondary); }
+.variation-group-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.variation-group-header input { flex:1; }
+.variation-group-values { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.variation-chip { display:flex; align-items:center; gap:4px; background:var(--bg-primary); border:1px solid var(--border); border-radius:4px; padding:2px 6px; }
+.variation-chip input { border:none; outline:none; font-size:12px; width:auto; min-width:40px; padding:2px; background:transparent; }
+.variation-chip .chip-rm { cursor:pointer; color:var(--accent-red); font-size:12px; background:none; border:none; padding:0 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+<div id="topbar">
+    <span id="editor-icon">📄</span>
+    <span class="title" id="editor-title">Product Editor</span>
+    <span id="modified-indicator" style="display:none;font-size:11px;color:var(--accent-yellow)">✏️ Modified</span>
+    <span class="spacer"></span>
+    <button class="btn btn-sm btn-primary" id="btn-save">💾 Save</button>
+    <button class="btn btn-sm" id="btn-close" onclick="window.close()">✕ Close</button>
+</div>
+<div id="content">
+    <div id="msg-area"></div>
+    <div id="editor-form">
+        <!-- Basic fields -->
+        <div class="form-row">
+            <div class="form-group"><label>Title</label><input type="text" id="f-title" /></div>
+            <div class="form-group"><label>Code</label><input type="text" id="f-code" /></div>
+            <div class="form-group"><label>Unit</label><input type="text" id="f-unit" placeholder="kg, pcs, m" /></div>
+        </div>
+        <div class="form-group"><label>Description</label><textarea id="f-desc" rows="4"></textarea></div>
+
+        <!-- Photos -->
+        <div class="section-header">Photos</div>
+        <div class="photo-grid" id="photo-grid"></div>
+        <div class="photo-upload" id="photo-upload-btn"><span style="font-size:20px">➕</span> Add Photo</div>
+
+        <!-- Variation Groups -->
+        <div class="section-header">Variation Groups</div>
+        <div id="variation-groups"></div>
+        <button class="btn btn-sm btn-primary" id="add-group-btn" style="margin-top:8px">➕ Add Group</button>
+
+        <!-- Price History -->
+        <div class="section-header">Price History</div>
+        <table id="price-table">
+            <thead><tr><th>Date</th><th>Variation</th><th>Price</th><th>Currency</th><th>Actions</th></tr></thead>
+            <tbody id="price-tbody"></tbody>
+        </table>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <input type="number" id="new-price-input" step="0.01" placeholder="Price" style="width:100px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px" />
+            <input type="text" id="new-currency-input" value="USD" maxlength="3" style="width:50px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px" />
+            <input type="text" id="new-variation-input" placeholder="Variation (optional)" style="width:150px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px" />
+            <button class="btn btn-sm btn-primary" id="add-price-btn">➕ Add Price</button>
+        </div>
+
+        <!-- Variation combos quick price input -->
+        <div class="section-header" style="margin-top:20px">Quick Price by Combination</div>
+        <div id="quick-price-area"></div>
+    </div>
+</div>
+</div>
+<script>
+// ── State ──
+var state = {
+    path: null,
+    product: null,
+    modified: false,
+    priceHistory: [],
+};
+
+// ── URL param ──
+function getQueryParam(name) {
+    var m = location.search.match(new RegExp('[?&]' + name + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1]) : null;
+}
+
+// ── API calls ──
+async function apiCall(method, url, body) {
+    var res = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    var data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Request failed');
+    return data.data;
+}
+
+var _port = window.API_PORT || 18000;
+var BASE = 'http://127.0.0.1:' + _port;
+
+var api = {
+    open: (p) => apiCall('POST', BASE + '/api/open', { path: p }),
+    save: (p, product) => apiCall('POST', BASE + '/api/save', { path: p, product: product }),
+    addPrice: (p, currency, variation, price) => apiCall('POST', BASE + '/api/add-price', { path: p, currency: currency, variation: variation, price: price }),
+    editPrice: (p, index, price, currency) => apiCall('POST', BASE + '/api/price/edit', { path: p, index: index, price: price, currency: currency }),
+    deletePrice: (p, index) => apiCall('POST', BASE + '/api/price/delete', { path: p, index: index }),
+    addPhoto: (p, photoPath) => apiCall('POST', BASE + '/api/add-photo', { path: p, photoPath: photoPath }),
+    removePhoto: (p, index) => apiCall('POST', BASE + '/api/remove-photo', { path: p, index: index }),
+    movePhoto: (p, index, direction) => apiCall('POST', BASE + '/api/photo/move', { path: p, index: index, direction: direction }),
+    exportPhoto: (p, index) => apiCall('POST', BASE + '/api/photo/export', { path: p, index: index }),
+    getPriceHistory: (p) => apiCall('POST', BASE + '/api/price/history', { path: p }),
+};
+
+function escapeHtml(s) { if (typeof s !== 'string') return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showMsg(msg, type) {
+    var area = document.getElementById('msg-area');
+    area.innerHTML = '<div class="' + (type === 'error' ? 'errormsg' : 'successmsg') + '">' + escapeHtml(msg) + '</div>';
+    setTimeout(function(){ area.innerHTML = ''; }, 4000);
+}
+
+function setModified() { state.modified = true; document.getElementById('modified-indicator').style.display = ''; }
+
+// ── Load ──
+async function loadProduct(path) {
+    try {
+        state.path = path;
+        var p = await api.open(path);
+        state.product = p;
+        document.getElementById('editor-title').textContent = 'Product - ' + (p.title || basename(path));
+        renderForm(p);
+    } catch (e) {
+        showMsg('Failed to load: ' + e.message, 'error');
+    }
+}
+
+function basename(p) { return p.split('/').filter(Boolean).pop() || p; }
+
+// ── Render ──
+function renderForm(p) {
+    document.getElementById('f-title').value = p.title || '';
+    document.getElementById('f-code').value = p.code || '';
+    document.getElementById('f-unit').value = p.unit || '';
+    document.getElementById('f-desc').value = p.description || '';
+    renderPhotos(p);
+    renderVariationGroups(p);
+    loadPriceHistory();
+    renderQuickPrices(p);
+
+    // Wire field changes
+    ['f-title','f-code','f-unit','f-desc'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', setModified);
+    });
+}
+
+function renderPhotos(p) {
+    var grid = document.getElementById('photo-grid');
+    var photos = p.photos || [];
+    var html = '';
+    photos.forEach(function(photo, idx) {
+        html += '<div class="photo-item">';
+        html += '<img src="' + photo + '" alt="Photo ' + (idx+1) + '" />';
+        html += '<button class="remove-btn" data-idx="' + idx + '" title="Remove">✕</button>';
+        if (idx > 0) html += '<button class="move-btn move-left" data-idx="' + idx + '" data-dir="-1" title="Move left">◀</button>';
+        if (idx < photos.length - 1) html += '<button class="move-btn move-right" data-idx="' + idx + '" data-dir="1" title="Move right">▶</button>';
+        html += '<button class="export-btn" data-idx="' + idx + '" title="Export">⬇</button>';
+        html += '</div>';
+    });
+    grid.innerHTML = html;
+
+    // Wire remove
+    grid.querySelectorAll('.remove-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            try {
+                var result = await api.removePhoto(state.path, parseInt(this.dataset.idx));
+                state.product = result;
+                renderForm(result);
+            } catch(e) { showMsg(e.message, 'error'); }
+        });
+    });
+    // Wire move
+    grid.querySelectorAll('.move-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            try {
+                var result = await api.movePhoto(state.path, parseInt(this.dataset.idx), parseInt(this.dataset.dir));
+                state.product = result;
+                renderForm(result);
+            } catch(e) { showMsg(e.message, 'error'); }
+        });
+    });
+    // Wire export
+    grid.querySelectorAll('.export-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            try {
+                var r = await api.exportPhoto(state.path, parseInt(this.dataset.idx));
+                if (r && r.data) {
+                    var a = document.createElement('a');
+                    a.href = 'data:' + r.mime + ';base64,' + r.data;
+                    a.download = r.filename;
+                    a.click();
+                }
+            } catch(e) { showMsg(e.message, 'error'); }
+        });
+    });
+}
+
+function renderVariationGroups(p) {
+    var container = document.getElementById('variation-groups');
+    var groups = p.variation_groups || [];
+    var html = '';
+    if (groups.length === 0) {
+        html = '<div style="color:var(--text-muted);font-size:13px">No variation groups defined.</div>';
+    }
+    groups.forEach(function(g, gi) {
+        html += '<div class="variation-group-card" data-gi="' + gi + '">';
+        html += '<div class="variation-group-header">';
+        html += '<input type="text" class="vg-name" value="' + escapeHtml(g.name) + '" placeholder="Group name" data-gi="' + gi + '" />';
+        html += '<label style="font-size:11px;white-space:nowrap"><input type="checkbox" class="vg-affects-price" data-gi="' + gi + '" ' + (g.affects_price !== false ? 'checked' : '') + ' /> Price</label>';
+        html += '<label style="font-size:11px;white-space:nowrap"><input type="checkbox" class="vg-affects-appearance" data-gi="' + gi + '" ' + (g.affects_appearance !== false ? 'checked' : '') + ' /> Appearance</label>';
+        html += '<button class="btn btn-xs btn-danger vg-remove" data-gi="' + gi + '" title="Remove group">✕</button>';
+        html += '</div>';
+        html += '<div class="variation-group-values">';
+        if (g.values && g.values.length > 0) {
+            g.values.forEach(function(v, vi) {
+                html += '<div class="variation-chip">';
+                html += '<input type="text" class="vg-value-input" value="' + escapeHtml(v) + '" placeholder="Value" data-gi="' + gi + '" data-vi="' + vi + '" />';
+                html += '<button class="chip-rm" data-gi="' + gi + '" data-vi="' + vi + '">✕</button>';
+                html += '</div>';
+            });
+        }
+        html += '<button class="btn btn-xs btn-primary add-val-btn" data-gi="' + gi + '">+ Value</button>';
+        html += '</div>';
+        html += '</div>';
+    });
+    container.innerHTML = html;
+
+    // Wire group name
+    container.querySelectorAll('.vg-name').forEach(function(el) {
+        el.addEventListener('input', function() {
+            var gi = parseInt(this.dataset.gi);
+            state.product.variation_groups[gi].name = this.value;
+            setModified();
+        });
+    });
+    // Wire toggles
+    container.querySelectorAll('.vg-affects-price').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var gi = parseInt(this.dataset.gi);
+            state.product.variation_groups[gi].affects_price = this.checked;
+            setModified();
+        });
+    });
+    container.querySelectorAll('.vg-affects-appearance').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var gi = parseInt(this.dataset.gi);
+            state.product.variation_groups[gi].affects_appearance = this.checked;
+            setModified();
+        });
+    });
+    // Wire value inputs
+    container.querySelectorAll('.vg-value-input').forEach(function(el) {
+        el.addEventListener('input', function() {
+            var gi = parseInt(this.dataset.gi);
+            var vi = parseInt(this.dataset.vi);
+            state.product.variation_groups[gi].values[vi] = this.value;
+            setModified();
+        });
+    });
+    // Wire remove value
+    container.querySelectorAll('.chip-rm').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var gi = parseInt(this.dataset.gi);
+            var vi = parseInt(this.dataset.vi);
+            state.product.variation_groups[gi].values.splice(vi, 1);
+            setModified();
+            renderVariationGroups(state.product);
+        });
+    });
+    // Wire add value
+    container.querySelectorAll('.add-val-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var gi = parseInt(this.dataset.gi);
+            state.product.variation_groups[gi].values.push('');
+            setModified();
+            renderVariationGroups(state.product);
+        });
+    });
+    // Wire remove group
+    container.querySelectorAll('.vg-remove').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var gi = parseInt(this.dataset.gi);
+            state.product.variation_groups.splice(gi, 1);
+            setModified();
+            renderVariationGroups(state.product);
+        });
+    });
+}
+
+async function loadPriceHistory() {
+    try {
+        var history = await api.getPriceHistory(state.path);
+        state.priceHistory = history;
+        renderPriceHistory(history);
+    } catch(e) { console.error('Price history load failed:', e); }
+}
+
+function renderPriceHistory(history) {
+    var tbody = document.getElementById('price-tbody');
+    if (!history || history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);text-align:center">No prices recorded.</td></tr>';
+        return;
+    }
+    var html = '';
+    for (var i = history.length - 1; i >= 0; i--) {
+        var rec = history[i];
+        var dateStr = rec.date ? rec.date.slice(0,10) : new Date(rec.timestamp * 1000).toISOString().slice(0,10);
+        html += '<tr>';
+        html += '<td>' + escapeHtml(dateStr) + '</td>';
+        html += '<td>' + escapeHtml(rec.variation || '—') + '</td>';
+        html += '<td>' + rec.price.toFixed(2) + '</td>';
+        html += '<td>' + escapeHtml(rec.currency || 'USD') + '</td>';
+        html += '<td>';
+        html += '<button class="btn btn-xs price-edit" data-idx="' + i + '" title="Edit">✏️</button> ';
+        html += '<button class="btn btn-xs btn-danger price-del" data-idx="' + i + '" title="Delete">🗑</button>';
+        html += '</td>';
+        html += '</tr>';
+    }
+    tbody.innerHTML = html;
+
+    tbody.querySelectorAll('.price-edit').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var idx = parseInt(this.dataset.idx);
+            var rec = state.priceHistory[idx];
+            var newPrice = prompt('Edit price:', rec.price.toFixed(2));
+            if (newPrice === null) return;
+            var newCurr = prompt('Edit currency:', rec.currency || 'USD');
+            if (newCurr === null) return;
+            newCurr = newCurr.trim().toUpperCase();
+            if (newCurr.length !== 3) { showMsg('Currency must be 3 letters', 'error'); return; }
+            var pv = parseFloat(newPrice);
+            if (isNaN(pv) || pv <= 0) { showMsg('Invalid price', 'error'); return; }
+            api.editPrice(state.path, idx, pv, newCurr).then(function(newHistory) {
+                state.priceHistory = newHistory;
+                renderPriceHistory(newHistory);
+            }).catch(function(e) { showMsg(e.message, 'error'); });
+        });
+    });
+    tbody.querySelectorAll('.price-del').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            var idx = parseInt(this.dataset.idx);
+            if (!confirm('Delete this price entry?')) return;
+            try {
+                var newHistory = await api.deletePrice(state.path, idx);
+                state.priceHistory = newHistory;
+                renderPriceHistory(newHistory);
+            } catch(e) { showMsg(e.message, 'error'); }
+        });
+    });
+}
+
+function renderQuickPrices(p) {
+    var groups = p.variation_groups || [];
+    var combos = buildCombinations(groups);
+    var container = document.getElementById('quick-price-area');
+    if (combos.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:13px">Add variation groups and values to see combinations.</div>';
+        return;
+    }
+    var html = '<table><thead><tr><th>Combination</th><th>Price</th><th>Currency</th></tr></thead><tbody>';
+    combos.forEach(function(c) {
+        html += '<tr>';
+        html += '<td>' + escapeHtml(c.label) + '</td>';
+        html += '<td><input type="number" step="0.01" class="qp-price" data-combo="' + escapeHtml(c.label) + '" style="width:100px;padding:4px 6px;border:1px solid var(--border);border-radius:3px" /></td>';
+        html += '<td><input type="text" class="qp-currency" value="USD" maxlength="3" style="width:50px;padding:4px 6px;border:1px solid var(--border);border-radius:3px" /></td>';
+        html += '<td><button class="btn btn-xs btn-primary qp-add" data-combo="' + escapeHtml(c.label) + '">Add</button></td>';
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+
+    container.querySelectorAll('.qp-add').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            var combo = this.dataset.combo;
+            var row = this.closest('tr');
+            var price = parseFloat(row.querySelector('.qp-price').value);
+            if (isNaN(price) || price <= 0) { showMsg('Enter a valid price', 'error'); return; }
+            var currency = row.querySelector('.qp-currency').value.trim().toUpperCase() || 'USD';
+            try {
+                await api.addPrice(state.path, currency, combo, price);
+                showMsg('Price added for ' + combo, 'success');
+                row.querySelector('.qp-price').value = '';
+                loadPriceHistory();
+            } catch(e) { showMsg(e.message, 'error'); }
+        });
+    });
+}
+
+function buildCombinations(groups) {
+    if (!groups || groups.length === 0) return [];
+    for (var i = 0; i < groups.length; i++) {
+        if (!groups[i].values || groups[i].values.length === 0) return [];
+    }
+    var total = 1;
+    for (var i = 0; i < groups.length; i++) total *= groups[i].values.length;
+    var result = [];
+    for (var idx = 0; idx < total; idx++) {
+        var values = [];
+        var remain = idx;
+        for (var gi = groups.length - 1; gi >= 0; gi--) {
+            var vals = groups[gi].values;
+            var vIdx = remain % vals.length;
+            values.unshift(vals[vIdx]);
+            remain = Math.floor(remain / vals.length);
+        }
+        var parts = values.filter(function(v) { return v !== ''; });
+        var label = parts.join(' / ');
+        result.push({ values: values, label: label });
+    }
+    return result;
+}
+
+// ── Save ──
+async function handleSave() {
+    var p = state.product;
+    var data = {
+        title: document.getElementById('f-title').value,
+        code: document.getElementById('f-code').value,
+        unit: document.getElementById('f-unit').value,
+        description: document.getElementById('f-desc').value,
+        variation_groups: p.variation_groups,
+    };
+    try {
+        var result = await api.save(state.path, data);
+        state.product = result;
+        state.modified = false;
+        document.getElementById('modified-indicator').style.display = 'none';
+        showMsg('Saved!', 'success');
+    } catch(e) { showMsg('Save failed: ' + e.message, 'error'); }
+}
+
+// ── Photo upload ──
+document.getElementById('photo-upload-btn').addEventListener('click', function() {
+    if (window.pywebview && window.pywebview.api) {
+        // Use native file dialog
+        window.pywebview.api.pickPhotos().then(function(paths) {
+            if (paths && paths.length > 0) {
+                addPhotosFromPaths(paths);
+            }
+        }).catch(function(e) { console.error(e); });
+    } else {
+        // Fallback to HTML file input
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/png,image/webp';
+        input.multiple = true;
+        input.onchange = async function() {
+            if (input.files && input.files.length > 0) {
+                var paths = [];
+                for (var i = 0; i < input.files.length; i++) {
+                    paths.push(input.files[i].name);
+                    // Can't get full path from browser, use upload route
+                    var formData = new FormData();
+                    formData.append('path', state.path);
+                    formData.append('photos', input.files[i]);
+                    try {
+                        await fetch(BASE + '/api/upload-photos', { method: 'POST', body: formData });
+                    } catch(e) { showMsg(e.message, 'error'); }
+                }
+                var p = await api.open(state.path);
+                state.product = p;
+                renderForm(p);
+            }
+        };
+        input.click();
+    }
+});
+
+async function addPhotosFromPaths(paths) {
+    for (var i = 0; i < paths.length; i++) {
+        try {
+            await api.addPhoto(state.path, paths[i]);
+        } catch(e) { showMsg('Failed to add photo: ' + e.message, 'error'); }
+    }
+    var p = await api.open(state.path);
+    state.product = p;
+    renderForm(p);
+}
+
+// ── Wire buttons ──
+document.getElementById('btn-save').addEventListener('click', handleSave);
+document.getElementById('add-group-btn').addEventListener('click', function() {
+    if (!state.product.variation_groups) state.product.variation_groups = [];
+    state.product.variation_groups.push({ name: '', values: [''] });
+    setModified();
+    renderVariationGroups(state.product);
+});
+document.getElementById('add-price-btn').addEventListener('click', async function() {
+    var price = parseFloat(document.getElementById('new-price-input').value);
+    if (isNaN(price) || price <= 0) { showMsg('Enter a valid price', 'error'); return; }
+    var currency = document.getElementById('new-currency-input').value.trim().toUpperCase() || 'USD';
+    var variation = document.getElementById('new-variation-input').value;
+    try {
+        await api.addPrice(state.path, currency, variation, price);
+        document.getElementById('new-price-input').value = '';
+        document.getElementById('new-variation-input').value = '';
+        showMsg('Price added', 'success');
+        loadPriceHistory();
+    } catch(e) { showMsg(e.message, 'error'); }
+});
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', function() {
+    var path = getQueryParam('path');
+    if (path) {
+        loadProduct(path);
+    } else {
+        showMsg('No product file specified', 'error');
+    }
+});
+</script>
+</body>
+</html>
