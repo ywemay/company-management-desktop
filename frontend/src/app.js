@@ -44,6 +44,9 @@ const api = {
     // Search
     searchItems:    (dir, query) => apiCall('POST', '/api/search', { dir, query }),
 
+    // Recursive listing
+    listItemsRecursive: (dir) => apiCall('POST', '/api/list-items-recursive', { dir }),
+
     // Copy / Move
     copyItems:      (sourcePaths, destDir) => apiCall('POST', '/api/copy-items', { sourcePaths, destDir }),
     moveItems:      (sourcePaths, destDir) => apiCall('POST', '/api/move-items', { sourcePaths, destDir }),

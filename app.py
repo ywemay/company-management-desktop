@@ -103,6 +103,56 @@ def api_get_settings():
     })
 
 
+@bottle_app.post("/api/list-items-recursive")
+def api_list_items_recursive():
+    """List all items recursively from subdirectories."""
+    body = request.json or {}
+    dir_path = body.get("dir", "")
+    if not dir_path:
+        return json_err("dir is required")
+    results = []
+    try:
+        for root, dirs, files in os.walk(dir_path):
+            # Skip hidden directories
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            rel_root = os.path.relpath(root, dir_path)
+            if rel_root == ".":
+                rel_root = ""
+            for f in sorted(files):
+                if f.startswith("."):
+                    continue
+                full_path = os.path.join(root, f)
+                rel_path = os.path.join(rel_root, f) if rel_root else f
+                subtype = None
+                if f.endswith(".prod"):
+                    subtype = "prod"
+                elif f.endswith(".comp"):
+                    subtype = "comp"
+                elif f.endswith(".deal"):
+                    subtype = "deal"
+                results.append({
+                    "type": "file",
+                    "name": f,
+                    "path": full_path,
+                    "relPath": rel_path,
+                    "subtype": subtype,
+                })
+            for d in sorted(dirs):
+                full_path = os.path.join(root, d)
+                rel_path = os.path.join(rel_root, d) if rel_root else d
+                results.append({
+                    "type": "folder",
+                    "name": d,
+                    "path": full_path,
+                    "relPath": rel_path,
+                })
+    except FileNotFoundError:
+        return json_err("directory not found")
+    # Sort: folders first, then files
+    results.sort(key=lambda x: (0 if x["type"] == "folder" else 1, x["relPath"].lower()))
+    return json_ok(results)
+
+
 @bottle_app.post("/api/settings")
 def api_save_settings():
     try:

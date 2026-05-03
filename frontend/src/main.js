@@ -10,6 +10,7 @@ const state = {
     viewMode: 'grid',  // 'grid' or 'list'
     searchQuery: '',
     searchTimer: null,
+    recursiveMode: false,
     selectedItems: [],  // paths of selected items
     lastClickedPath: null,
     clipboard: { items: [], operation: null },  // 'copy' or 'cut'
@@ -23,6 +24,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     try { setupModals(); } catch(e) { console.error('setupModals:', e); }
     try { setupGalleryEvents(); } catch(e) { console.error('setupGalleryEvents:', e); }
     try { setupSearch(); } catch(e) { console.error('setupSearch:', e); }
+    try {
+        const recursiveCb = document.getElementById('recursive-check');
+        if (recursiveCb) {
+            recursiveCb.addEventListener('change', () => {
+                handleMenuAction('toggle-recursive');
+            });
+        }
+    } catch(e) { console.error('setupRecursive:', e); }
     initSettings().then(() => {
         if (state.settings.defaultDir) {
             loadDirectory(state.settings.defaultDir);
@@ -89,7 +98,12 @@ async function loadDirectory(dir) {
     state.galleryAbort = true;
     state.currentDir = dir;
     try {
-        const items = await api.listItems(dir);
+        let items;
+        if (state.recursiveMode) {
+            items = await api.listItemsRecursive(dir);
+        } else {
+            items = await api.listItems(dir);
+        }
         state._allItems = items;
         state.items = items;
         updateSidebarHeader(dir);
@@ -383,7 +397,7 @@ async function renderGallery(dir, items) {
     dealItems.forEach(f => cardData.push({ kind: 'deal', data: f }));
     prodItems.forEach(f => cardData.push({ kind: 'prod', data: f }));
 
-    countEl.textContent = cardData.length + ' items';
+    countEl.textContent = cardData.length + ' items' + (state.recursiveMode ? ' (recursive)' : '');
 
     if (cardData.length === 0) {
         grid.innerHTML = '<div class="empty-tab" style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">This directory is empty</div>';
@@ -443,10 +457,12 @@ async function renderGallery(dir, items) {
 
     productFiles.forEach((f) => {
         const name = f.name.replace(/\.prod$/, '');
+        const relPath = f.relPath ? '<div class="card-relpath">' + escapeHtml(f.relPath) + '</div>' : '';
         html += '<div class="product-card" data-file="' + escapeHtml(f.path) + '">' +
             '<div class="card-thumb"><span class="no-photo">📦</span></div>' +
             '<div class="card-body">' +
             '<div class="card-title">' + escapeHtml(name) + '</div>' +
+            relPath +
             '<div class="card-code">loading...</div>' +
             '<div class="card-no-price">—</div>' +
             '</div></div>';
@@ -697,6 +713,24 @@ function openFileInEditor(path, subtype) {
     else api.openSystem(path).catch(showError);
 }
 
+// ── Open any file (recursive/list view), defaults to OS if not supported ──
+function openItem(item) {
+    if (item.type === 'folder') {
+        if (state.recursiveMode) {
+            // In recursive mode, clicking a folder does nothing special (already expanded)
+            return;
+        }
+        loadDirectory(item.path);
+        return;
+    }
+    const subtype = item.subtype;
+    if (subtype === 'prod' || subtype === 'comp' || subtype === 'deal') {
+        openFileInEditor(item.path, subtype);
+    } else {
+        api.openSystem(item.path).catch(showError);
+    }
+}
+
 // ── Menu Bar ──
 function setupMenuBar() {
     // Toggle menus on click
@@ -730,7 +764,7 @@ function setupMenuBar() {
         const a = el.dataset.action;
         if (['go-up','refresh','new-folder','change-dir','browse-startup-dir','browse-settings-dir',
              'set-startup-dir','skip-startup','cancel-createdir','do-create-dir',
-             'cancel-settings','save-settings','close-about','toggle-view'].includes(a)) {
+             'cancel-settings','save-settings','close-about','toggle-view','toggle-recursive'].includes(a)) {
             e.stopPropagation();
             handleMenuAction(a);
         }
@@ -813,6 +847,12 @@ async function handleMenuAction(action) {
             document.getElementById('about-overlay').classList.remove('show');
             document.getElementById('about-overlay').style.display = 'none';
             break;
+        case 'toggle-recursive': {
+            const cb = document.getElementById('recursive-check');
+            state.recursiveMode = cb.checked;
+            if (state.currentDir) loadDirectory(state.currentDir);
+            break;
+        }
         case 'toggle-view': {
             state.viewMode = state.viewMode === 'grid' ? 'list' : 'grid';
             document.getElementById('view-toggle').textContent = state.viewMode === 'grid' ? '☰' : '⊞';
