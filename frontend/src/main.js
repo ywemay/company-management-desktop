@@ -14,6 +14,14 @@ const DBG = {
     log: function(msg) { console.log('[dbg]', msg); this._send('log', msg); },
     error: function(msg) { console.error('[dbg]', msg); this._send('error', msg); },
 };
+// ── State ──
+const state = {
+    currentDir: null,
+    items: [],
+    settings: { defaultDir: '', currency: 'USD', company: '' },
+    galleryAbort: false,
+};
+
 DBG.log('main.js loaded');
 DBG.log('window.__INITIAL_SETTINGS__ exists: ' + (typeof window.__INITIAL_SETTINGS__ !== 'undefined'));
 if (window.__INITIAL_SETTINGS__) {
@@ -23,14 +31,6 @@ if (window.__INITIAL_SETTINGS__) {
     DBG.log('__INITIAL_SETTINGS__ is UNDEFINED (not injected)');
 }
 DBG.log('state.settings defaultDir before init: "' + state.settings.defaultDir + '"');
-
-// ── State ──
-const state = {
-    currentDir: null,
-    items: [],
-    settings: { defaultDir: '', currency: 'USD', company: '' },
-    galleryAbort: false,
-};
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
